@@ -7,8 +7,8 @@
         }
       },
       "subjects": [
-        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=module",
-        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=package"
+        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=module&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%40a888f7261b9a9683972fbd77da2d12fe86faef5e",
+        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=package&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%40a888f7261b9a9683972fbd77da2d12fe86faef5e"
       ],
       "text": "hermeto:backend:gomod",
       "timestamp": "2025-01-01T00:00:00Z"
@@ -17,7 +17,7 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
-      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=module",
+      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=module&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%40a888f7261b9a9683972fbd77da2d12fe86faef5e",
       "name": "github.com/cachito-testing/cachito-gomod-without-deps",
       "properties": [
         {
@@ -25,12 +25,12 @@
           "value": "hermeto"
         }
       ],
-      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=module",
+      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=module&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%40a888f7261b9a9683972fbd77da2d12fe86faef5e",
       "type": "library",
       "version": "v0.0.0-20200925115855-a888f7261b9a"
     },
     {
-      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=package",
+      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=package&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%40a888f7261b9a9683972fbd77da2d12fe86faef5e",
       "name": "github.com/cachito-testing/cachito-gomod-without-deps",
       "properties": [
         {
@@ -38,7 +38,7 @@
           "value": "hermeto"
         }
       ],
-      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=package",
+      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20200925115855-a888f7261b9a?type=package&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%40a888f7261b9a9683972fbd77da2d12fe86faef5e",
       "type": "library",
       "version": "v0.0.0-20200925115855-a888f7261b9a"
     }

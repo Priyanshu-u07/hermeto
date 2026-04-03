@@ -11,8 +11,8 @@
         "pkg:golang/cmp?type=package",
         "pkg:golang/errors?type=package",
         "pkg:golang/fmt?type=package",
-        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module",
-        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package",
+        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
+        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
         "pkg:golang/golang.org/x/text/internal/tag@v0.0.0-20170915032832-14c0d48ead0c?type=package",
         "pkg:golang/golang.org/x/text/language@v0.0.0-20170915032832-14c0d48ead0c?type=package",
         "pkg:golang/golang.org/x/text@v0.0.0-20170915032832-14c0d48ead0c?type=module",
@@ -95,8 +95,8 @@
         "pkg:golang/cmp?type=package",
         "pkg:golang/errors?type=package",
         "pkg:golang/fmt?type=package",
-        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module",
-        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package",
+        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
+        "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
         "pkg:golang/golang.org/x/text/internal/tag@v0.0.0-20170915032832-14c0d48ead0c?type=package",
         "pkg:golang/golang.org/x/text/language@v0.0.0-20170915032832-14c0d48ead0c?type=package",
         "pkg:golang/golang.org/x/text@v0.0.0-20170915032832-14c0d48ead0c?type=module",
@@ -220,7 +220,7 @@
       "type": "library"
     },
     {
-      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module",
+      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
       "name": "github.com/cachito-testing/gomod-vendor-check-fail",
       "properties": [
         {
@@ -228,12 +228,12 @@
           "value": "hermeto"
         }
       ],
-      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module",
+      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=module&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
       "type": "library",
       "version": "v0.0.0-20210729213647-8553df649870"
     },
     {
-      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package",
+      "bom-ref": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
       "name": "github.com/cachito-testing/gomod-vendor-check-fail",
       "properties": [
         {
@@ -241,7 +241,7 @@
           "value": "hermeto"
         }
       ],
-      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package",
+      "purl": "pkg:golang/github.com/hermetoproject/integration-tests@v0.0.0-20210729213647-8553df649870?type=package&vcs_url=git%2Bhttps://github.com/hermetoproject/integration-tests.git%408553df6498705b2b36614320ca0c65bc24a1d9e6",
       "type": "library",
       "version": "v0.0.0-20210729213647-8553df649870"
     },
