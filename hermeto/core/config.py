@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import yaml
-from pydantic import AfterValidator, BaseModel, HttpUrl, ValidationError, model_validator
+from pydantic import AfterValidator, BaseModel, HttpUrl, SecretStr, ValidationError, model_validator
 from pydantic_core import ErrorDetails
 from pydantic_settings import (
     BaseSettings,
@@ -103,7 +103,7 @@ class ProxyMixin(BaseModel):
 
     proxy_url: ProxyUrl = None
     proxy_login: str | None = None
-    proxy_password: str | None = None
+    proxy_password: SecretStr | None = None
 
     @model_validator(mode="after")
     def _validate_login_and_password_both_set(self) -> Self:

@@ -6,6 +6,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from pydantic import SecretStr
 
 from hermeto.core.checksum import ChecksumInfo
 from hermeto.core.config import NpmSettings
@@ -432,7 +433,7 @@ def test_npm_proxy_credentials_do_not_propagate_to_nonregistry_hosts(
     mock_config = mock.Mock()
     mock_config.npm.proxy_url = "https://fakeproxy.com"
     # ruff would assume this is a hardcoded password otherwise
-    mock_config.npm.proxy_password = "fake-proxy-password"  # noqa: S105
+    mock_config.npm.proxy_password = SecretStr("fake-proxy-password")  # noqa: S105
     mock_config.npm.proxy_login = "fake-proxy-login"
     mocked_config.return_value = mock_config
     mock_from_sri.return_value = ("fake-algorithm", "fake-digest")
@@ -494,7 +495,7 @@ def test_npm_proxy_credentials_propagate_to_registry_hosts(
     mock_config = mock.Mock()
     mock_config.npm.proxy_url = "https://fakeproxy.com"
     # ruff would assume this is a hardcoded password otherwise
-    mock_config.npm.proxy_password = "fake-proxy-password"  # noqa: S105
+    mock_config.npm.proxy_password = SecretStr("fake-proxy-password")  # noqa: S105
     mock_config.npm.proxy_login = "fake-proxy-login"
     mocked_config.return_value = mock_config
     mock_from_sri.return_value = ("fake-algorithm", "fake-digest")
@@ -559,7 +560,7 @@ def test_npm_proxy_url_gets_substituted_for_registry_hosts(
     mock_config = mock.Mock()
     mock_config.npm.proxy_url = proxy_url
     # ruff would assume this is a hardcoded password otherwise
-    mock_config.npm.proxy_password = "fake-proxy-password"  # noqa: S105
+    mock_config.npm.proxy_password = SecretStr("fake-proxy-password")  # noqa: S105
     mock_config.npm.proxy_login = "fake-proxy-login"
     mocked_config.return_value = mock_config
     mock_from_sri.return_value = ("fake-algorithm", "fake-digest")

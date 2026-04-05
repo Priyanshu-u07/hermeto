@@ -104,6 +104,42 @@ class TestTopLevelOpts:
         assert "bar, foo" in lines[0]
         assert "x-baz" in lines[1]
 
+    def test_config_command(self) -> None:
+        result = invoke_expecting_sucess(app, ["config"])
+        assert "gomod:" in result.output
+        assert "# HERMETO_GOMOD__PROXY_URL" in result.output
+
+    def test_config_diff_command(self) -> None:
+        result = invoke_expecting_sucess(app, ["config", "--diff"])
+        assert (
+            "differ from defaults" in result.output
+            or "All values are at their defaults" in result.output
+        )
+
+    def test_config_redacts_passwords_by_default(self) -> None:
+        env = {
+            "HERMETO_GOMOD__PROXY_URL": "https://proxy.example.com",
+            "HERMETO_GOMOD__PROXY_LOGIN": "user",
+            "HERMETO_GOMOD__PROXY_PASSWORD": "s3cret-value",
+        }
+        with mock.patch.dict(os.environ, env):
+            config_file.config = None
+            result = invoke_expecting_sucess(app, ["config"])
+        assert "s3cret-value" not in result.output
+        assert "**********" in result.output
+
+    def test_config_raw_shows_secrets(self) -> None:
+        env = {
+            "HERMETO_GOMOD__PROXY_URL": "https://proxy.example.com",
+            "HERMETO_GOMOD__PROXY_LOGIN": "user",
+            "HERMETO_GOMOD__PROXY_PASSWORD": "s3cret-value",
+        }
+        with mock.patch.dict(os.environ, env):
+            config_file.config = None
+            result = invoke_expecting_sucess(app, ["config", "--raw"])
+        assert "s3cret-value" in result.output
+        assert "**********" not in result.output
+
     @pytest.mark.parametrize(
         "config_values",
         [
