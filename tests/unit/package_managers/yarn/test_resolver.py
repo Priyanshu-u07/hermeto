@@ -79,6 +79,17 @@ YARN_INFO_OUTPUTS = [
         },
     },
     {
+        "value": "ccto-wo-deps@patch:ccto-wo-deps@https%3A//github.com/hermetoproject/integration-tests/archive/b7dacdbf112ce0ea17a75c389e9e0f2f70f5be81.tar.gz#./.yarn/patches/ccto-wo-deps-git@github.com-e0fce8c89c.patch::version=1.0.0&hash=51a91f&locator=berryscary%40workspace%3A.",
+        "children": {
+            "Version": "1.0.0",
+            "Cache": {
+                "Checksum": "8/0b368057b2a14b3dee06b46bb461df65b143709e9fda4c5dd792357b0dbebbc6ae756b33c0ac89d20dea13ada05eed54c6668a277680f4ecfe588be658174658",
+                "Path": "{repo_dir}/.yarn/cache/ccto-wo-deps-patch-855821225b-0b368057b2.zip",
+                "Size": 1128,
+            },
+        },
+    },
+    {
         "value": "fsevents@patch:fsevents@npm%3A2.3.2#./my-patches/fsevents.patch::version=2.3.2&hash=cf0bf0&locator=berryscary%40workspace%3A.",
         "children": {
             "Version": "2.3.2",
@@ -153,6 +164,12 @@ EXPECT_PACKAGES = [
         cache_path="{repo_dir}/.yarn/cache/c2-wo-deps-2-https-4261b189d8-b194fd1f4a.zip",
     ),
     Package(
+        raw_locator="ccto-wo-deps@patch:ccto-wo-deps@https%3A//github.com/hermetoproject/integration-tests/archive/b7dacdbf112ce0ea17a75c389e9e0f2f70f5be81.tar.gz#./.yarn/patches/ccto-wo-deps-git@github.com-e0fce8c89c.patch::version=1.0.0&hash=51a91f&locator=berryscary%40workspace%3A.",
+        version="1.0.0",
+        checksum="0b368057b2a14b3dee06b46bb461df65b143709e9fda4c5dd792357b0dbebbc6ae756b33c0ac89d20dea13ada05eed54c6668a277680f4ecfe588be658174658",
+        cache_path="{repo_dir}/.yarn/cache/ccto-wo-deps-patch-855821225b-0b368057b2.zip",
+    ),
+    Package(
         raw_locator="fsevents@patch:fsevents@npm%3A2.3.2#./my-patches/fsevents.patch::version=2.3.2&hash=cf0bf0&locator=berryscary%40workspace%3A.",
         version="2.3.2",
         checksum="f73215b04b52395389a612af4d30f7f412752cdfba1580c9e32c7ec259e448b57b464a4d0474427d6142f5ed9a6260fc1841d61834caf44706d77874fba6f17f",
@@ -208,7 +225,7 @@ def test_validate_unsupported_locators(
 ) -> None:
     unsupported_outputs = [
         {
-            "value": "ccto-wo-deps@git@github.com:cachito-testing/cachito-npm-without-deps.git#commit=2f0ce1d7b1f8b35572d919428b965285a69583f6",
+            "value": "is-positive@git@github.com:kevva/is-positive.git#commit=97edff6f525f192a3f83cea1944765f769ae2678",
             "children": {
                 "Version": "1.0.0",
                 "Cache": {
@@ -219,7 +236,7 @@ def test_validate_unsupported_locators(
             },
         },
         {
-            "value": "ccto-wo-deps@patch:ccto-wo-deps@git@github.com%3Acachito-testing/cachito-npm-without-deps.git%23commit=2f0ce1d7b1f8b35572d919428b965285a69583f6#./.yarn/patches/ccto-wo-deps-git@github.com-e0fce8c89c.patch::version=1.0.0&hash=51a91f&locator=berryscary%40workspace%3A.",
+            "value": "is-positive@patch:is-positive@git@github.com%3Akevva/is-positive.git%23commit=97edff6f525f192a3f83cea1944765f769ae2678#./.yarn/patches/is-positive-git@github.com-e0fce8c89c.patch::version=3.1.0&hash=51a91f&locator=berryscary%40workspace%3A.",
             "children": {
                 "Version": "1.0.0",
                 "Cache": {
@@ -250,8 +267,8 @@ def test_validate_unsupported_locators(
         resolve_packages(rooted_tmp_path)
 
     assert caplog.messages == [
-        f"{APP_NAME} does not support Git or Exec dependencies for Yarn Berry: ccto-wo-deps@git@github.com:cachito-testing/cachito-npm-without-deps.git#commit=2f0ce1d7b1f8b35572d919428b965285a69583f6",
-        f"{APP_NAME} does not support Git or Exec dependencies for Yarn Berry: ccto-wo-deps@git@github.com:cachito-testing/cachito-npm-without-deps.git#commit=2f0ce1d7b1f8b35572d919428b965285a69583f6",
+        f"{APP_NAME} does not support Git or Exec dependencies for Yarn Berry: is-positive@git@github.com:kevva/is-positive.git#commit=97edff6f525f192a3f83cea1944765f769ae2678",
+        f"{APP_NAME} does not support Git or Exec dependencies for Yarn Berry: is-positive@git@github.com:kevva/is-positive.git#commit=97edff6f525f192a3f83cea1944765f769ae2678",
         f"{APP_NAME} does not support Git or Exec dependencies for Yarn Berry: holy-hand-grenade@exec:./generate-holy-hand-grenade.js#./generate-holy-hand-grenade.js::hash=3b5cbd&locator=berryscary%40workspace%3A.",
     ]
 
@@ -512,13 +529,13 @@ def mock_project(project_dir: RootedPath) -> Project:
         pytest.param(
             MockedPackage(
                 Package(
-                    raw_locator="@cachito/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz",
+                    raw_locator="@hermeto/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz",
                     version="2.0.0",
                     checksum="b194fd1f4a79472a332fec936818d1713a222157e845a8d466a239fdc950130a7ad9b77c212d69d2947c07bce0c911446496ff47dec5a73b4368f0a9c9432b1d",
                     cache_path="cache/directory/c2-wo-deps-2-https-4261b189d8-b194fd1f4a.zip",
                 ),
                 is_hardlink=True,
-                packjson_path="node_modules/@cachito/c2-wo-deps-2/package.json",
+                packjson_path="node_modules/@hermeto/c2-wo-deps-2/package.json",
                 packjson_content=json.dumps({"name": "bitbucket-cachi2-npm-without-deps-second"}),
             ),
             Component(
@@ -532,7 +549,7 @@ def mock_project(project_dir: RootedPath) -> Project:
             ),
             [
                 (
-                    "@cachito/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz: "
+                    "@hermeto/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz: "
                     "reading package name from cache/directory/c2-wo-deps-2-https-4261b189d8-b194fd1f4a.zip"
                 ),
             ],
@@ -875,7 +892,7 @@ def test_create_components_patched_packages_with_multiple_paths(
         pytest.param(
             MockedPackage(
                 Package(
-                    raw_locator="@cachito/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz",
+                    raw_locator="@hermeto/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz",
                     version="2.0.0",
                     checksum="b194fd1f4a79472a332fec936818d1713a222157e845a8d466a239fdc950130a7ad9b77c212d69d2947c07bce0c911446496ff47dec5a73b4368f0a9c9432b1d",
                     cache_path=None,
@@ -884,7 +901,7 @@ def test_create_components_patched_packages_with_multiple_paths(
             ),
             (
                 "Failed to resolve the name and version for "
-                "@cachito/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz: "
+                "@hermeto/c2-wo-deps-2@https://bitbucket.org/cachi-testing/cachi2-without-deps-second/get/09992d418fc44a2895b7a9ff27c4e32d6f74a982.tar.gz: "
                 "expected a zip archive in the cache but 'yarn info' says there is none"
             ),
             id="https_no_cache_path",

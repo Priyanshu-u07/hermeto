@@ -70,7 +70,8 @@ Hermeto downloads dependencies explicitly declared in lockfiles. For pip, the
 closest thing to a lockfile would be a "fully resolved" requirements.txt - must
 contain all the transitive dependencies, must pin them to exact versions.
 
-A good way to generate requirements.txt is via [pip-compile][]. Note that
+A good way to generate requirements.txt is via [pip-compile][]
+(or [uv pip compile][]). Note that
 pip-compile supports reading dependencies directly from project files (e.g.
 pyproject.toml, setup.cfg, setup.py) or from "requirements.in" input files.
 
@@ -780,10 +781,8 @@ Let's build a [basic pip project][].
 Get the repo if you want to try for yourself
 
 ```shell
-git clone https://github.com/hermetoproject/doc-examples.git --branch=pip-basic
+git clone https://github.com/hermetoproject/doc-examples.git --branch=pip-basic && cd doc-examples
 ```
-
-then `cd` into the `doc-examples` directory.
 
 #### Pre-fetch dependencies
 
@@ -891,3 +890,4 @@ these steps for you.
 [source format]: https://packaging.python.org/en/latest/specifications/source-distribution-format
 [tensorflow]: https://pypi.org/project/tensorflow/2.11.0/#files
 [ubi8/python-39]: https://catalog.redhat.com/software/containers/ubi8/python-39/6065b24eb92fbda3a4c65d8f
+[uv pip compile]: https://docs.astral.sh/uv/pip/compile/#locking-environments
