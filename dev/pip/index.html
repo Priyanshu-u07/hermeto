@@ -1734,7 +1734,8 @@ projects. They should have</p>
 <p>Hermeto downloads dependencies explicitly declared in lockfiles. For pip, the
 closest thing to a lockfile would be a "fully resolved" requirements.txt - must
 contain all the transitive dependencies, must pin them to exact versions.</p>
-<p>A good way to generate requirements.txt is via <a href="https://pip-tools.readthedocs.io/en/stable/">pip-compile</a>. Note that
+<p>A good way to generate requirements.txt is via <a href="https://pip-tools.readthedocs.io/en/stable/">pip-compile</a>
+(or <a href="https://docs.astral.sh/uv/pip/compile/#locking-environments">uv pip compile</a>). Note that
 pip-compile supports reading dependencies directly from project files (e.g.
 pyproject.toml, setup.cfg, setup.py) or from "requirements.in" input files.</p>
 <details>
@@ -2310,9 +2311,8 @@ of version 2.11.0) distributes only wheels.</p>
 <h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
 <p>Let's build a <a href="https://github.com/hermetoproject/doc-examples/tree/pip-basic">basic pip project</a>.</p>
 <p>Get the repo if you want to try for yourself</p>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/hermetoproject/doc-examples.git<span class="w"> </span>--branch<span class="o">=</span>pip-basic
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/hermetoproject/doc-examples.git<span class="w"> </span>--branch<span class="o">=</span>pip-basic<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>doc-examples
 </code></pre></div>
-<p>then <code>cd</code> into the <code>doc-examples</code> directory.</p>
 <h4 id="pre-fetch-dependencies">Pre-fetch dependencies<a class="headerlink" href="#pre-fetch-dependencies" title="Permanent link">&para;</a></h4>
 <p>As mentioned above in
 <a href="#specifying-packages-to-process">Specifying packages to process</a>,

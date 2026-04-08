@@ -1132,53 +1132,24 @@ individual files.</p>
 <p>See the <a href="#example">Example</a> below for a complete walkthrough of Hermeto usage.</p>
 <h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
 <p>Generic fetcher is a package manager that can fetch arbitrary files. Let's build
-a sample container image that would be inconvenient to build hermetically
+a <a href="https://github.com/hermetoproject/doc-examples/tree/generic-basic">basic generic project</a> that would be inconvenient to build hermetically
 otherwise. This image will provide <a href="https://github.com/dependency-check/DependencyCheck">OWASP Dependency check</a> tool, which is available
-to install from GitHub releases page. Get the repo if you want to try for
-yourself</p>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>-b<span class="w"> </span>sample-app<span class="w"> </span>https://github.com/cachito-testing/cachi2-generic.git
+to install from GitHub releases page.</p>
+<p>Get the repo if you want to try for yourself:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/hermetoproject/doc-examples.git<span class="w"> </span>--branch<span class="o">=</span>generic-basic<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>doc-examples
 </code></pre></div>
 <h4 id="pre-fetch-dependencies">Pre-fetch dependencies<a class="headerlink" href="#pre-fetch-dependencies" title="Permanent link">&para;</a></h4>
-<p>In order to retrieve the archive with the tool, either a <code>artifacts.lock.yaml</code>
-needs to be in the repository, or a lockfile path needs to be supplied in the
-JSON input (either an absolute path or a path relative to the package <code>path</code>).
-You can find
-a sample lockfile below. It is identical to the one found in the
-<a href="https://github.com/cachito-testing/cachi2-generic/tree/sample-app">sample repository</a>.
-A lockfile for the generic fetcher must contain a <code>metadata</code> header and a list
-of artifacts, where each artifact is represented as a pair of URL and a checksum
-string in the format of <code>"algorithm:checksum"</code>. Optionally, you can also specify
-an output <code>filename</code> for the artifact. If not specified, it will be derived from
-the url.</p>
-<div class="highlight"><pre><span></span><code><span class="nn">---</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1.0&quot;</span>
-<span class="nt">artifacts</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">download_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://github.com/jeremylong/DependencyCheck/releases/download/v11.1.0/dependency-check-11.1.0-release.zip&quot;</span>
-<span class="w">    </span><span class="nt">checksum</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sha256:c5b5b9e592682b700e17c28f489fe50644ef54370edeb2c53d18b70824de1e22&quot;</span>
-<span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;dependency-check.zip&quot;</span>
+<p>As mentioned above in
+<a href="#specifying-artifacts-to-fetch">Specifying artifacts to fetch</a>,
+Hermeto pre-fetches using the <code>fetch-deps</code> command.</p>
+<p>Sources can be fetched with</p>
+<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>generic
 </code></pre></div>
-<p>As with other examples, the command to fetch dependencies is very similar. The
-default path is assumed to be <code>.</code>.</p>
-<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>--source<span class="w"> </span>./hermeto-generic<span class="w"> </span>--output<span class="w"> </span>./hermeto-output<span class="w"> </span>generic
-</code></pre></div>
+<p>The shorthand <code>generic</code> defaults <code>path</code> to <code>.</code>. You can pass a full JSON
+object if you need a custom source directory or lockfile path instead.</p>
 <h4 id="build-the-application-image">Build the application image<a class="headerlink" href="#build-the-application-image" title="Permanent link">&para;</a></h4>
-<p>We'll use the <code>ibmjava:11-jdk</code> as base image because it already has java
-pre-installed. During the build, the downloaded release will be extracted and
-modified to have execute rights.</p>
-<div class="highlight"><pre><span></span><code><span class="k">FROM</span><span class="w"> </span><span class="s">ibmjava:11-jdk</span>
-
-<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/tmp</span>
-
-
-<span class="c"># use jar to unzip file in order to avoid having to install more dependencies</span>
-<span class="k">RUN</span><span class="w"> </span>jar<span class="w"> </span>-xvf<span class="w"> </span>hermeto-output/deps/generic/dependency-check.zip
-
-<span class="k">RUN</span><span class="w"> </span>chmod<span class="w"> </span>+x<span class="w"> </span>dependency-check/bin/dependency-check.sh
-
-<span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/tmp/dependency-check/bin/dependency-check.sh&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--version&quot;</span><span class="p">]</span>
-</code></pre></div>
-<p>We can then build the image as before while mounting the required Hermeto data.</p>
+<p>The repo already contains a <code>Containerfile</code> for this example. Build it while
+mounting the pre-fetched Hermeto output:</p>
 <div class="highlight"><pre><span></span><code>podman<span class="w"> </span>build<span class="w"> </span>.<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--volume<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>realpath<span class="w"> </span>./hermeto-output<span class="k">)</span><span class="s2">&quot;</span>:/tmp/hermeto-output:Z<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--network<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>

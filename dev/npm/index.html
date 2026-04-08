@@ -580,17 +580,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#project-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Project example
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -613,17 +602,6 @@
     <span class="md-ellipsis">
       
         Changes made by the inject-files command
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#updated-project-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Updated project example
       
     </span>
   </a>
@@ -884,17 +862,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#project-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Project example
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -917,17 +884,6 @@
     <span class="md-ellipsis">
       
         Changes made by the inject-files command
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#updated-project-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Updated project example
       
     </span>
   </a>
@@ -1039,10 +995,8 @@
 <li><a href="#specifying-packages-to-process">Specifying packages to process</a></li>
 <li><a href="#project-files">Project files</a></li>
 <li><a href="#dependencies">Dependencies</a></li>
-<li><a href="#project-example">Project example</a></li>
 <li><a href="#using-fetched-dependencies">Using fetched dependencies</a></li>
 <li><a href="#changes-made-by-the-inject-files-command">Changes made by the inject-files command</a></li>
-<li><a href="#updated-project-example">Updated project example</a></li>
 <li><a href="#example">Full example walkthrough</a></li>
 </ul>
 <h2 id="specifying-packages-to-process">Specifying packages to process<a class="headerlink" href="#specifying-packages-to-process" title="Permanent link">&para;</a></h2>
@@ -1153,227 +1107,16 @@ see the <a href="https://docs.npmjs.com/cli/v9/configuring-npm/package-json#depe
 
 </details>
 
-<h3 id="project-example">Project example<a class="headerlink" href="#project-example" title="Permanent link">&para;</a></h3>
-<details>
-  <summary>package.json</summary>
-
-<div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;npm-demo&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;description&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;main&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;index.js&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;scripts&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;test&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;echo \&quot;Error: no test specified\&quot; &amp;&amp; exit 1&quot;</span>
-<span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="s2">&quot;author&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;@types/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;bitbucket-cachi2-npm-without-deps-second&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;git+https://bitbucket.org/cachi-testing/cachi2-without-deps-second.git&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;cachito-npm-without-deps&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/cachito-testing/cachito-npm-without-deps/raw/tarball/cachito-npm-without-deps-1.0.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;fecha&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:fecha-4.2.3.tgz&quot;</span>
-<span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="s2">&quot;workspaces&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="s2">&quot;foo&quot;</span>
-<span class="w">  </span><span class="p">]</span>
-<span class="p">}</span>
-</code></pre></div>
-
-</details>
-
-<details>
-    <summary>package-lock.json</summary>
-
-<div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;cachi2-npm-demo&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;lockfileVersion&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">3</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;requires&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;packages&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;cachi2-npm-demo&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;workspaces&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="s2">&quot;foo&quot;</span>
-<span class="w">      </span><span class="p">],</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;@types/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;bitbucket-cachi2-npm-without-deps-second&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;git+https://bitbucket.org/cachi-testing/cachi2-without-deps-second.git&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;cachito-npm-without-deps&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/cachito-testing/cachito-npm-without-deps/raw/tarball/cachito-npm-without-deps-1.0.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;fecha&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:fecha-4.2.3.tgz&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;foo&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;is-positive&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;github:kevva/is-positive&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;devDependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/prop-types&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;15.7.5&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/@types/prop-types/-/prop-types-15.7.5.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/react&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.18&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/@types/react/-/react-18.2.18.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-da4NTSeBv/P34xoZPhtcLkmZuJ+oYaCxHmyHzwaDQo9RQPBeXV+06gEk2FpqEcsX9XrnNLvRpVh6bdavDSjtiQ==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;@types/prop-types&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;@types/scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;csstype&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^3.0.2&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.7&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/@types/react-dom/-/react-dom-18.2.7.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-GRaAEriuT4zp9N4p1i8BDBYmEyfo+xQ3yHjJU4eiK5NDa1RmUZG+unZABUTK4/Ox/M+GaHwb6Ow8rUITrtjszA==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;@types/react&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0.16.3&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/@types/scheduler/-/scheduler-0.16.3.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-5cJ8CB4yAx7BH1oMvdU0Jh9lrEXyPkar6F9G/ERswkCuvP4KQZfZkSjcMbAICCpQTN4OuZn8tz0HiKv9TGZgrQ==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/bitbucket-cachi2-npm-without-deps-second&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;2.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;git+ssh://git@bitbucket.org/cachi-testing/cachi2-without-deps-second.git#09992d418fc44a2895b7a9ff27c4e32d6f74a982&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/cachito-npm-without-deps&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/cachito-testing/cachito-npm-without-deps/raw/tarball/cachito-npm-without-deps-1.0.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-Q+cfkK1fnrNJqxiig/iVSZTe83OWLdxhuGa96k1IJJ5nkTxrhNyh6MUZ6YHKH8xitDgpIQSojuntctt2pB7+3g==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/csstype&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;3.1.2&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/csstype/-/csstype-3.1.2.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-I7K1Uu0MBPzaFKg4nI5Q7Vs2t+3gWWW648spaF+Rg7pI9ds18Ugn+lvg4SHczUdKlHI5LWBXyqfS8+DufyBsgQ==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/fecha&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;4.2.3&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:fecha-4.2.3.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-OP2IUU6HeYKJi3i0z4A19kHMQoLVs4Hc+DPqqxI2h/DPZHTm/vjsfC6P0b4jCMy14XizLBqvndQ+UilD7707Jw==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/foo&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;foo&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;link&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/is-positive&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;3.1.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;git+ssh://git@github.com/kevva/is-positive.git#97edff6f525f192a3f83cea1944765f769ae2678&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;engines&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;node&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&gt;=0.10.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/js-tokens&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;4.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.4.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;js-tokens&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^3.0.0 || ^4.0.0&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;bin&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;cli.js&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/react&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/react/-/react-18.2.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;peer&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^1.1.0&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;engines&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;node&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&gt;=0.10.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/react-dom/-/react-dom-18.2.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-6IMTriUmvsjHUjNtEDudZfuDQUoWXVxKHhlEGSk81n4YFS+r/Kl99wXiwlVXtPBtJenozv2P+hxDsw9eA7Xo6g==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^1.1.0&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^0.23.0&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;peerDependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;react&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.2.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0.23.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://registry.npmjs.org/scheduler/-/scheduler-0.23.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-CtuThmgHNg7zIZWAXi3AsyIzA3n4xx7aNyjwC2VJldO2LMVDhFK+63xGqq6CsJH4rTAt6/M+N4GhZiDYPx9eUw==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^1.1.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="w">  </span><span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-
-</details>
-
-<details>
-  <summary>foo/package.json (workspace)</summary>
-
-<div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;foo&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;description&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;main&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;index.js&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;devDependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{},</span>
-<span class="w">  </span><span class="s2">&quot;scripts&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;test&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;echo \&quot;Error: no test specified\&quot; &amp;&amp; exit 1&quot;</span>
-<span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="s2">&quot;author&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;is-positive&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;github:kevva/is-positive&quot;</span>
-<span class="w">  </span><span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-
-</details>
-
 <h2 id="using-fetched-dependencies">Using fetched dependencies<a class="headerlink" href="#using-fetched-dependencies" title="Permanent link">&para;</a></h2>
 <p>See the <a href="#example">Example</a> for a complete walkthrough of Hermeto usage.</p>
-<p>Hermeto downloads the npm dependencies as tar archives into the <code>deps/npm/</code>
-subpath of the output directory.</p>
-<ol>
-<li>Dependencies fetched from npm registries are placed directly to this
-   directory (array-flatten in the following example).</li>
-<li>Dependencies downloaded from other HTTPS URL are placed to subdirectory
-   <code>external-&lt;tarball_name&gt;</code> (bar-project in the following example).</li>
-<li>Dependencies retrieved from Git repository are placed to <code>host, namespace,
-   repo</code> subdirectories (foo-project in the following example).</li>
-</ol>
+<p>Hermeto downloads npm dependencies as tar archives into the <code>deps/npm/</code>
+subpath of the output directory. Registry dependencies are placed directly
+there (e.g. <code>accepts-1.3.8.tgz</code>). Dependencies from Git or other HTTPS URLs
+are placed in subdirectories as described in <a href="#project-files">Project files</a>.</p>
 <div class="highlight"><pre><span></span><code>hermeto-output/deps/npm
+├── accepts-1.3.8.tgz
 ├── array-flatten-1.1.1.tgz
-├── bitbucket.org
-│        └── foo-testing
-│             └── foo-project
-│                       └── foo-project-external-gitcommit-9e164b97043a2d91bbeb992f6cc68a3d1015086a.tgz
-├── body-parser-1.20.1.tgz
-├── bytes-3.1.2.tgz
-│   ...
-├── external-bar-project
-│        └── bar-project-external-sha512-43e71f90ad5YOLO.tgz
-│   ...
+├── ...
 </code></pre></div>
 <p>In order for the <code>npm install</code> command to use the fetched dependencies instead
 of reaching for the npm registry, Hermeto needs to update
@@ -1398,216 +1141,25 @@ each <a href="https://docs.npmjs.com/cli/v9/using-npm/workspaces?v=true">workspa
   archive and changing the integrity checksum, Hermeto deletes integrity items,
   which should not be there in the first place</li>
 </ul>
-<h3 id="updated-project-example">Updated project example<a class="headerlink" href="#updated-project-example" title="Permanent link">&para;</a></h3>
-<details>
-  <summary>package.json</summary>
-
-<div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;cachi2-npm-demo&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;description&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;main&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;index.js&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;scripts&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;test&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;echo \&quot;Error: no test specified\&quot; &amp;&amp; exit 1&quot;</span>
-<span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="s2">&quot;author&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="s2">&quot;@types/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="s2">&quot;bitbucket-cachi2-npm-without-deps-second&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="s2">&quot;cachito-npm-without-deps&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="s2">&quot;fecha&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:fecha-4.2.3.tgz&quot;</span>
-<span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="s2">&quot;workspaces&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="s2">&quot;foo&quot;</span>
-<span class="w">  </span><span class="p">]</span>
-<span class="p">}</span>
+<p>After running <code>inject-files</code>, <code>resolved</code> URLs in <code>package-lock.json</code> point to
+the output directory, for example:</p>
+<div class="highlight"><pre><span></span><code><span class="gd">-      &quot;resolved&quot;: &quot;https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz&quot;,</span>
+<span class="gi">+      &quot;resolved&quot;: &quot;file:///tmp/hermeto-output/deps/npm/accepts-1.3.8.tgz&quot;,</span>
 </code></pre></div>
-
-</details>
-
-<details>
-  <summary>package-lock.json</summary>
-
-<div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;cachi2-npm-demo&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;lockfileVersion&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">3</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;requires&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;packages&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;cachi2-npm-demo&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;workspaces&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="s2">&quot;foo&quot;</span>
-<span class="w">      </span><span class="p">],</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;@types/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;bitbucket-cachi2-npm-without-deps-second&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;cachito-npm-without-deps&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;fecha&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:fecha-4.2.3.tgz&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.0.1&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;foo&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;is-positive&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;devDependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/prop-types&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;15.7.5&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/types-prop-types-15.7.5.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/react&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.18&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/types-react-18.2.18.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-da4NTSeBv/P34xoZPhtcLkmZuJ+oYaCxHmyHzwaDQo9RQPBeXV+06gEk2FpqEcsX9XrnNLvRpVh6bdavDSjtiQ==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;@types/prop-types&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;@types/scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;csstype&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^3.0.2&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.7&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/types-react-dom-18.2.7.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-GRaAEriuT4zp9N4p1i8BDBYmEyfo+xQ3yHjJU4eiK5NDa1RmUZG+unZABUTK4/Ox/M+GaHwb6Ow8rUITrtjszA==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;@types/react&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/@types/scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0.16.3&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/types-scheduler-0.16.3.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-5cJ8CB4yAx7BH1oMvdU0Jh9lrEXyPkar6F9G/ERswkCuvP4KQZfZkSjcMbAICCpQTN4OuZn8tz0HiKv9TGZgrQ==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/bitbucket-cachi2-npm-without-deps-second&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;2.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/bitbucket.org/cachi-testing/cachi2-without-deps-second/cachi2-without-deps-second-external-gitcommit-09992d418fc44a2895b7a9ff27c4e32d6f74a982.tgz&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/cachito-npm-without-deps&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/external-cachito-npm-without-deps/cachito-npm-without-deps-external-sha512-43e71f90ad5f9eb349ab18a283f8954994def373962ddc61b866bdea4d48249e67913c6b84dca1e8c519e981ca1fcc62b438292104a88ee9ed72db76a41efede.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-Q+cfkK1fnrNJqxiig/iVSZTe83OWLdxhuGa96k1IJJ5nkTxrhNyh6MUZ6YHKH8xitDgpIQSojuntctt2pB7+3g==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/csstype&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;3.1.2&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/csstype-3.1.2.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-I7K1Uu0MBPzaFKg4nI5Q7Vs2t+3gWWW648spaF+Rg7pI9ds18Ugn+lvg4SHczUdKlHI5LWBXyqfS8+DufyBsgQ==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/fecha&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;4.2.3&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:fecha-4.2.3.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-OP2IUU6HeYKJi3i0z4A19kHMQoLVs4Hc+DPqqxI2h/DPZHTm/vjsfC6P0b4jCMy14XizLBqvndQ+UilD7707Jw==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/foo&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;foo&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;link&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/is-positive&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;3.1.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/github.com/kevva/is-positive/is-positive-external-gitcommit-97edff6f525f192a3f83cea1944765f769ae2678.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;engines&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;node&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&gt;=0.10.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/js-tokens&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;4.0.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/js-tokens-4.0.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.4.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/loose-envify-1.4.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;js-tokens&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^3.0.0 || ^4.0.0&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;bin&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;cli.js&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/react&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/react-18.2.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;peer&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^1.1.0&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;engines&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;node&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&gt;=0.10.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/react-dom&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;18.2.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/react-dom-18.2.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-6IMTriUmvsjHUjNtEDudZfuDQUoWXVxKHhlEGSk81n4YFS+r/Kl99wXiwlVXtPBtJenozv2P+hxDsw9eA7Xo6g==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^1.1.0&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^0.23.0&quot;</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="s2">&quot;peerDependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;react&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^18.2.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="s2">&quot;node_modules/scheduler&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0.23.0&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;resolved&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;file:///tmp/deps/npm/scheduler-0.23.0.tgz&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;integrity&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sha512-CtuThmgHNg7zIZWAXi3AsyIzA3n4xx7aNyjwC2VJldO2LMVDhFK+63xGqq6CsJH4rTAt6/M+N4GhZiDYPx9eUw==&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="s2">&quot;loose-envify&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^1.1.0&quot;</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="w">  </span><span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-
-</details>
-
-<details>
-  <summary>foo/package.json (workspace)</summary>
-
-<div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;foo&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;version&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;description&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;main&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;index.js&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;devDependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{},</span>
-<span class="w">  </span><span class="s2">&quot;scripts&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s2">&quot;test&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;echo \&quot;Error: no test specified\&quot; &amp;&amp; exit 1&quot;</span>
-<span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="s2">&quot;author&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;license&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ISC&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;dependencies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="s2">&quot;is-positive&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
-<span class="w">  </span><span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-
-</details>
-
 <h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
-<p>Let's build simple npm project <a href="https://github.com/cachito-testing/sample-nodejs-app">sample-nodejs-app</a>. Get
-the repo if you want to try for yourself</p>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/cachito-testing/sample-nodejs-app.git
+<p>Let's build a <a href="https://github.com/hermetoproject/doc-examples/tree/npm-basic">basic npm project</a>.</p>
+<p>Get the repo if you want to try for yourself:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/hermetoproject/doc-examples.git<span class="w"> </span>--branch<span class="o">=</span>npm-basic<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>doc-examples
 </code></pre></div>
 <h4 id="pre-fetch-dependencies">Pre-fetch dependencies<a class="headerlink" href="#pre-fetch-dependencies" title="Permanent link">&para;</a></h4>
-<p>The steps for pre-fetching the dependencies is similar to before, but this time
-we will use the <code>npm</code> package manager type. The default behavior path of <code>.</code> is
-assumed.</p>
-<p>See <a href="./">the npm documentation</a> for more details about running Hermeto for
-pre-fetching npm dependencies.</p>
-<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>--source<span class="w"> </span>./sample-nodejs-app<span class="w"> </span>--output<span class="w"> </span>./hermeto-output<span class="w"> </span><span class="s1">&#39;{&quot;type&quot;: &quot;npm&quot;}&#39;</span>
+<p>As mentioned above in
+<a href="#specifying-packages-to-process">Specifying packages to process</a>,
+Hermeto pre-fetches using the <code>fetch-deps</code> command.</p>
+<p>Sources can be fetched with</p>
+<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>npm
 </code></pre></div>
+<p>The shorthand <code>npm</code> defaults <code>path</code> to <code>.</code>. You can pass a full JSON
+object if you need a custom source directory instead.</p>
 <h4 id="generate-environment-variables">Generate environment variables<a class="headerlink" href="#generate-environment-variables" title="Permanent link">&para;</a></h4>
 <p>Next, we need to generate the environment file, so we can provide environment
 variables to the <code>npm install</code> command.</p>
@@ -1628,26 +1180,13 @@ an example,</p>
 <span class="gi">+      &quot;resolved&quot;: &quot;file:///tmp/hermeto-output/deps/npm/accepts-1.3.8.tgz&quot;,</span>
 </code></pre></div>
 <h4 id="build-the-application-image">Build the application image<a class="headerlink" href="#build-the-application-image" title="Permanent link">&para;</a></h4>
-<p>We will base the final application image on <code>node:18</code> base image. The base image
-build has <code>npm</code> pre-installed, so the final phase can use network isolation 🎉.</p>
-<div class="highlight"><pre><span></span><code><span class="k">FROM</span><span class="w"> </span><span class="s">node:18</span>
-
-<span class="k">COPY</span><span class="w"> </span>sample-nodejs-app/<span class="w"> </span>/src/sample-nodejs-app
-<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/src/sample-nodejs-app</span>
-
-<span class="c"># Run npm install command and list installed packages</span>
-<span class="k">RUN</span><span class="w"> </span>.<span class="w"> </span>/tmp/hermeto.env<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>i<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>ls
-
-<span class="k">EXPOSE</span><span class="w"> </span><span class="s">9000</span>
-
-<span class="k">CMD</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;node&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;index.js&quot;</span><span class="p">]</span>
-</code></pre></div>
-<p>We can then build the image as before while mounting the required Hermeto data!</p>
+<p>The repo already contains a <code>Containerfile</code> for this example. Build it while
+mounting the pre-fetched Hermeto data:</p>
 <div class="highlight"><pre><span></span><code>podman<span class="w"> </span>build<span class="w"> </span>.<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--volume<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>realpath<span class="w"> </span>./hermeto-output<span class="k">)</span><span class="s2">&quot;</span>:/tmp/hermeto-output:Z<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--volume<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>realpath<span class="w"> </span>./hermeto.env<span class="k">)</span><span class="s2">&quot;</span>:/tmp/hermeto.env:Z<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--network<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--tag<span class="w"> </span>sample-nodejs-app
+<span class="w">  </span>--tag<span class="w"> </span>npm-example
 </code></pre></div>
 
 

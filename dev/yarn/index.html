@@ -1309,21 +1309,21 @@ in the build environment along with explanation</p>
 <span class="nv">YARN_ENABLE_IMMUTABLE_CACHE</span><span class="o">=</span><span class="nb">false</span>
 </code></pre></div>
 <h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
-<p>For the Yarn example let's use the same sample Node.js <a href="https://github.com/cachito-testing/sample-nodejs-app/tree/yarn">project</a>, but
-this time modified to use Yarn as the package manager. Get the repo if you want
-to try for yourself</p>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>-b<span class="w"> </span>yarn<span class="w"> </span>https://github.com/cachito-testing/sample-nodejs-app.git
+<p>For the Yarn example let's use the same sample Node.js <a href="https://github.com/hermetoproject/doc-examples/tree/yarn-basic">project</a>, but
+this time modified to use Yarn as the package manager. Get the repo if you
+want to try for yourself:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/hermetoproject/doc-examples.git<span class="w"> </span>--branch<span class="o">=</span>yarn-basic<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>doc-examples
 </code></pre></div>
 <h4 id="pre-fetch-dependencies">Pre-fetch dependencies<a class="headerlink" href="#pre-fetch-dependencies" title="Permanent link">&para;</a></h4>
 <p>The steps for pre-fetching the dependencies are very similar to the previous
 examples, this time using the Yarn package manager. Like with the previous
 examples the default path for the package we assume is <code>.</code>.</p>
 <p>See <a href="./">the Yarn documentation</a> for more details about running Hermeto for
-pre-fetching yarn dependencies.</p>
-<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>--source<span class="w"> </span>./sample-yarn-app<span class="w"> </span>--output<span class="w"> </span>./hermeto-output<span class="w"> </span><span class="s1">&#39;{&quot;type&quot;: &quot;yarn&quot;}&#39;</span>
+pre-fetching Yarn dependencies.</p>
+<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>--output<span class="w"> </span>./hermeto-output<span class="w"> </span><span class="s1">&#39;{&quot;type&quot;: &quot;yarn&quot;}&#39;</span>
 </code></pre></div>
 <p>OR more simply (without the need of a JSON formatted argument) just</p>
-<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>--source<span class="w"> </span>./sample-yarn-app<span class="w"> </span>--output<span class="w"> </span>./hermeto-output<span class="w"> </span>yarn
+<div class="highlight"><pre><span></span><code>hermeto<span class="w"> </span>fetch-deps<span class="w"> </span>--output<span class="w"> </span>./hermeto-output<span class="w"> </span>yarn
 </code></pre></div>
 <h4 id="generate-environment-variables">Generate environment variables<a class="headerlink" href="#generate-environment-variables" title="Permanent link">&para;</a></h4>
 <p>There are a few environment variables we'll have to set for Yarn during the
@@ -1340,29 +1340,13 @@ $<span class="w"> </span>cat<span class="w"> </span>./hermeto.env
 content in the source directory for the cached dependencies to be used in a
 hermetic build, however that might change in the future.</p>
 <h4 id="build-the-application-image">Build the application image<a class="headerlink" href="#build-the-application-image" title="Permanent link">&para;</a></h4>
-<p>Yarn is installed using a Node.js tool called
-<a href="https://nodejs.org/api/corepack.html#corepack">Corepack</a> which has been shipped
-by Node.js by default since v16.9.0 and v14.19.0. Therefore, we'll use the
-<code>node:18</code> base image in our example which definitely has Corepack and we can
-start using Yarn right away.</p>
-<div class="highlight"><pre><span></span><code><span class="k">FROM</span><span class="w"> </span><span class="s">node:18</span>
-
-<span class="k">COPY</span><span class="w"> </span>sample-yarn-app/<span class="w"> </span>/src/sample-yarn-app
-<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/src/sample-yarn-app</span>
-
-<span class="c"># Run yarn install command and list installed packages</span>
-<span class="k">RUN</span><span class="w"> </span>.<span class="w"> </span>/tmp/hermeto.env<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>yarn<span class="w"> </span>install
-
-<span class="k">EXPOSE</span><span class="w"> </span><span class="s">9000</span>
-
-<span class="k">CMD</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;yarn&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;run&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;start&quot;</span><span class="p">]</span>
-</code></pre></div>
-<p>We can then build the image as before while mounting the required Hermeto data!</p>
+<p>The repo already contains a <code>Containerfile</code> for this example. Build it while
+mounting the pre-fetched Hermeto data:</p>
 <div class="highlight"><pre><span></span><code>podman<span class="w"> </span>build<span class="w"> </span>.<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--volume<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>realpath<span class="w"> </span>./hermeto-output<span class="k">)</span><span class="s2">&quot;</span>:/tmp/hermeto-output:Z<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--volume<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>realpath<span class="w"> </span>./hermeto.env<span class="k">)</span><span class="s2">&quot;</span>:/tmp/hermeto.env:Z<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--network<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--tag<span class="w"> </span>sample-nodejs-app
+<span class="w">  </span>--tag<span class="w"> </span>yarn-example
 </code></pre></div>
 
 
