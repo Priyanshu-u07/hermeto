@@ -318,3 +318,5 @@ See docs/yarn.md for more details.
 [yarn]: https://yarnpkg.com
 
 # feature change
+
+# fixed typo
