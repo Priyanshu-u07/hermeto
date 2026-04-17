@@ -14,10 +14,11 @@ import pydantic
 import typer
 
 from hermeto import APP_NAME
-from hermeto.core.config import set_config
+from hermeto.core.config import get_config, set_config
+from hermeto.core.constants import Mode
 from hermeto.core.errors import BaseError, InvalidInput, UnexpectedFormat
 from hermeto.core.extras.envfile import EnvFormat, generate_envfile
-from hermeto.core.models.input import Flag, Mode, PackageInput, Request, parse_user_input
+from hermeto.core.models.input import Flag, PackageInput, Request, parse_user_input
 from hermeto.core.models.output import BuildConfig
 from hermeto.core.models.sbom import Sbom, SPDXSbom, spdx_now
 from hermeto.core.resolver import (
@@ -160,7 +161,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 @handle_errors
-def main(  # noqa: D103 docstring becomes part of --help message
+def main(  # noqa: D103 -- docstring becomes part of --help message
     version: bool = typer.Option(  # noqa: ARG001
         False,
         "--version",
@@ -191,7 +192,11 @@ def main(  # noqa: D103 docstring becomes part of --help message
 ) -> None:
     setup_logging(log_level)
     if config_file:
-        set_config(config_file)
+        config = set_config(config_file)
+    else:
+        config = get_config()
+    # Typer ensures `mode` is already a valid Mode enum value
+    config.mode = mode
 
 
 def _if_json_then_validate(value: str) -> str:
@@ -242,8 +247,8 @@ def list_backends() -> None:
 
 @app.command(help=FETCH_DEPS_HELP)
 @handle_errors
-def fetch_deps(  # noqa: D103; docstring becomes part of --help message
-    ctx: typer.Context,
+def fetch_deps(  # noqa: D103 -- docstring becomes part of --help message
+    ctx: typer.Context,  # noqa: ARG001
     raw_input: str = typer.Argument(
         ...,
         help="Specify JSON input or path to JSON input file to process. See usage examples.",
@@ -346,7 +351,6 @@ def fetch_deps(  # noqa: D103; docstring becomes part of --help message
 
     input = parse_user_input(_Input.model_validate, normalize_input())
 
-    mode = ctx.parent.params.get("mode")  # type: ignore[union-attr]
     request = parse_user_input(
         Request.model_validate,
         {
@@ -354,7 +358,6 @@ def fetch_deps(  # noqa: D103; docstring becomes part of --help message
             "output_dir": output,
             "packages": input.packages,
             "flags": combine_option_and_json_flags(input.flags),
-            "mode": mode,
         },
     )
 
@@ -476,7 +479,7 @@ def _prevalidate_sbom_files_args(sbom_files_to_merge: Paths) -> Paths:
 
 @app.command(help=MERGE_SBOMS_HELP)
 @handle_errors
-def merge_sboms(  # noqa: D103; docstring becomes part of --help message
+def merge_sboms(  # noqa: D103 -- docstring becomes part of --help message
     sbom_files_to_merge: Paths = typer.Argument(
         ...,
         callback=_prevalidate_sbom_files_args,
