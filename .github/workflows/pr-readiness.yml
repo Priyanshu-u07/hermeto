@@ -1,0 +1,135 @@
+# NOTE:
+# We intentionally use pull_request_target to allow commenting on fork PRs.
+# This workflow NEVER checks out or executes PR code.
+# It only reads commit metadata via the GitHub API.
+
+name: PR Readiness Check
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  pr-readiness:
+    name: Review Readiness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR readiness
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.issue.number;
+            const COMMENT_MARKER = "<!-- pr-readiness-check -->";
+            const CONTRIBUTING_URL = `https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md`;
+            const DCO_URL = "https://developercertificate.org/";
+
+            // Fetch all commits in the PR (paginated)
+            const commits = await github.paginate(
+              github.rest.pulls.listCommits,
+              { owner, repo, pull_number }
+            );
+
+            const issues = [];
+
+            for (const c of commits) {
+              const msg = c.commit.message;
+              const sha = c.sha.substring(0, 7);
+              const commitLink = `[${sha}](https://github.com/${owner}/${repo}/commit/${c.sha})`;
+              const firstLine = msg.split("\n")[0].trim();
+
+              // 1. Missing DCO sign-off
+              const hasDCO = /Signed-off-by:\s+.+<.+@.+>/i.test(msg);
+              if (!hasDCO) {
+                issues.push(
+                  `- **Missing DCO** in commit ${commitLink}\n` +
+                  `  Add \`Signed-off-by\` trailer using \`git commit --amend -s\``
+                );
+              }
+
+              // 2. Empty or missing commit message description
+              if (firstLine.length === 0) {
+                issues.push(
+                  `- **Empty commit message** in commit ${commitLink}\n` +
+                  `  Please provide a meaningful commit message.`
+                );
+              } else {
+                const bodyLines = msg.split("\n").slice(1).join("\n").trim();
+                // Remove trailers (Signed-off-by, Co-authored-by, etc.) to check actual body
+                const bodyWithoutTrailers = bodyLines
+                  .split("\n")
+                  .filter(line => !/^(Signed-off-by|Co-authored-by|Assisted-by|Acked-by|Reviewed-by):/i.test(line.trim()))
+                  .join("\n")
+                  .trim();
+                if (bodyWithoutTrailers.length === 0) {
+                  issues.push(
+                    `- **Missing commit description** in commit ${commitLink}\n` +
+                    `  Please add a description explaining what the commit does and why.`
+                  );
+                }
+              }
+
+              // 3. Merge commit detection
+              if (firstLine.startsWith("Merge branch") || firstLine.startsWith("Merge remote")) {
+                issues.push(
+                  `- **Merge commit detected** in commit ${commitLink}\n` +
+                  `  Please rebase your branch to remove merge commits.`
+                );
+              }
+            }
+
+            // Build and post/update comment
+            let body;
+
+            if (issues.length > 0) {
+              body = [
+                COMMENT_MARKER,
+                "# PR Readiness Check",
+                "",
+                "## ❌ This PR is not ready for review.",
+                "",
+                "**Issues found:**",
+                "",
+                ...issues,
+                "",
+                "---",
+                `See the [Contributing Guidelines](${CONTRIBUTING_URL}) and [DCO](${DCO_URL}) for more details.`,
+              ].join("\n");
+            } else {
+              body = [
+                COMMENT_MARKER,
+                "# PR Readiness Check",
+                "",
+                "## ✅ All basic checks passed. This PR is ready for review.",
+              ].join("\n");
+            }
+
+            // Find existing bot comment to update (paginated)
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: pull_number }
+            );
+
+            const existingComment = comments.find(
+              (comment) => comment.body && comment.body.includes(COMMENT_MARKER)
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existingComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pull_number,
+                body,
+              });
+            }
