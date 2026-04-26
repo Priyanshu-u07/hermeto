@@ -42,7 +42,16 @@ jobs:
               const commitLink = `[${sha}](https://github.com/${owner}/${repo}/commit/${c.sha})`;
               const firstLine = msg.split("\n")[0].trim();
 
-              // 1. Missing DCO sign-off
+              // 1. Merge commit detection (skip other checks — fix is to remove it)
+              if (firstLine.startsWith("Merge branch") || firstLine.startsWith("Merge remote")) {
+                issues.push(
+                  `- **Merge commit detected** in commit ${commitLink}\n` +
+                  `  Please rebase your branch to remove merge commits.`
+                );
+                continue;
+              }
+
+              // 2. Missing DCO sign-off
               const hasDCO = /Signed-off-by:\s+.+<.+@.+>/i.test(msg);
               if (!hasDCO) {
                 issues.push(
@@ -51,7 +60,7 @@ jobs:
                 );
               }
 
-              // 2. Empty or missing commit message description
+              // 3. Empty or missing commit message description
               if (firstLine.length === 0) {
                 issues.push(
                   `- **Empty commit message** in commit ${commitLink}\n` +
@@ -72,14 +81,6 @@ jobs:
                   );
                 }
               }
-
-              // 3. Merge commit detection
-              if (firstLine.startsWith("Merge branch") || firstLine.startsWith("Merge remote")) {
-                issues.push(
-                  `- **Merge commit detected** in commit ${commitLink}\n` +
-                  `  Please rebase your branch to remove merge commits.`
-                );
-              }
             }
 
             // Build and post/update comment
@@ -97,6 +98,8 @@ jobs:
                 ...issues,
                 "",
                 "---",
+                "**Please fix the issues above and push again.**",
+                "",
                 `See the [Contributing Guidelines](${CONTRIBUTING_URL}) and [DCO](${DCO_URL}) for more details.`,
               ].join("\n");
             } else {
