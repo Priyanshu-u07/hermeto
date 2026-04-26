@@ -34,7 +34,10 @@ jobs:
               { owner, repo, pull_number }
             );
 
-            const issues = [];
+            const mergeCommits = [];
+            const missingDCO = [];
+            const emptyMessages = [];
+            const missingDesc = [];
 
             for (const c of commits) {
               const msg = c.commit.message;
@@ -44,28 +47,19 @@ jobs:
 
               // 1. Merge commit detection (skip other checks — fix is to remove it)
               if (firstLine.startsWith("Merge branch") || firstLine.startsWith("Merge remote")) {
-                issues.push(
-                  `- **Merge commit detected** in commit ${commitLink}\n` +
-                  `  Please rebase your branch to remove merge commits.`
-                );
+                mergeCommits.push(commitLink);
                 continue;
               }
 
               // 2. Missing DCO sign-off
               const hasDCO = /Signed-off-by:\s+.+<.+@.+>/i.test(msg);
               if (!hasDCO) {
-                issues.push(
-                  `- **Missing DCO** in commit ${commitLink}\n` +
-                  `  Add \`Signed-off-by\` trailer using \`git commit --amend -s\``
-                );
+                missingDCO.push(commitLink);
               }
 
               // 3. Empty or missing commit message description
               if (firstLine.length === 0) {
-                issues.push(
-                  `- **Empty commit message** in commit ${commitLink}\n` +
-                  `  Please provide a meaningful commit message.`
-                );
+                emptyMessages.push(commitLink);
               } else {
                 const bodyLines = msg.split("\n").slice(1).join("\n").trim();
                 // Remove trailers (Signed-off-by, Co-authored-by, etc.) to check actual body
@@ -75,12 +69,38 @@ jobs:
                   .join("\n")
                   .trim();
                 if (bodyWithoutTrailers.length === 0) {
-                  issues.push(
-                    `- **Missing commit description** in commit ${commitLink}\n` +
-                    `  Please add a description explaining what the commit does and why.`
-                  );
+                  missingDesc.push(commitLink);
                 }
               }
+            }
+
+            // Build grouped issues
+            const issues = [];
+            const pl = (arr) => arr.length === 1 ? "commit" : "commits";
+
+            if (mergeCommits.length > 0) {
+              issues.push(
+                `- **Merge commit detected** in ${pl(mergeCommits)} ${mergeCommits.join(", ")}\n` +
+                `  Please rebase your branch to remove merge commits.`
+              );
+            }
+            if (missingDCO.length > 0) {
+              issues.push(
+                `- **Missing DCO** in ${pl(missingDCO)} ${missingDCO.join(", ")}\n` +
+                `  Add \`Signed-off-by\` trailer using \`git commit --amend -s\``
+              );
+            }
+            if (emptyMessages.length > 0) {
+              issues.push(
+                `- **Empty commit message** in ${pl(emptyMessages)} ${emptyMessages.join(", ")}\n` +
+                `  Please provide a meaningful commit message.`
+              );
+            }
+            if (missingDesc.length > 0) {
+              issues.push(
+                `- **Missing commit description** in ${pl(missingDesc)} ${missingDesc.join(", ")}\n` +
+                `  Please add a description explaining what the commit does and why.`
+              );
             }
 
             // Build and post/update comment
