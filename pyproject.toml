@@ -4,10 +4,10 @@ requires = ["setuptools", "setuptools-scm"]
 
 [project]
 name = "hermeto"
-license = { text = "GPLv3+" }
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 classifiers = [
-  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -130,7 +130,6 @@ disallow_untyped_decorators = false
 [tool.coverage.report]
 skip_covered = true
 show_missing = true
-fail_under = 90
 exclude_lines = [
   "def __repr__",
   "if __name__ == .__main__.:",

@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import asyncio
+import functools
 import logging
 import tarfile
 import zipfile
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib import parse as urlparse
 
+import aiohttp
 import pypi_simple
+import requests.auth
 from packageurl import PackageURL
 from packaging.utils import canonicalize_name
 
@@ -18,8 +21,10 @@ from hermeto.core.constants import Mode
 from hermeto.core.errors import LockfileNotFound, NotAGitRepo, PackageRejected, UnsupportedFeature
 from hermeto.core.models.input import PipBinaryFilters, Request
 from hermeto.core.models.output import EnvironmentVariable, ProjectFile, RequestOutput
-from hermeto.core.models.property_semantics import PropertySet
-from hermeto.core.models.sbom import Component, create_backend_annotation
+from hermeto.core.models.sbom import (
+    Component,
+    create_backend_annotation,
+)
 from hermeto.core.package_managers.general import (
     async_download_files,
     download_binary_file,
@@ -29,6 +34,13 @@ from hermeto.core.package_managers.general import (
 from hermeto.core.package_managers.pip.package_distributions import (
     DistributionPackageInfo,
     process_package_distributions,
+)
+from hermeto.core.package_managers.pip.packages import (
+    PipPackage,
+    PipPackageInfo,
+    PyPIPackage,
+    URLPackage,
+    VCSPackage,
 )
 from hermeto.core.package_managers.pip.project_files import PyProjectTOML, SetupCFG, SetupPY
 from hermeto.core.package_managers.pip.requirements import (
@@ -54,6 +66,11 @@ DEFAULT_BUILD_REQUIREMENTS_FILE = "requirements-build.txt"
 DEFAULT_REQUIREMENTS_FILE = "requirements.txt"
 
 
+class _PyPIArtifact(NamedTuple):
+    requirement: PipRequirement
+    dpi: DistributionPackageInfo
+
+
 def fetch_pip_source(request: Request) -> RequestOutput:
     """Resolve and fetch pip dependencies for the given request."""
     components: list[Component] = []
@@ -73,44 +90,18 @@ def fetch_pip_source(request: Request) -> RequestOutput:
             package.requirements_build_files,
             package.binary,
         )
-        purl = _generate_purl_main_package(info["package"], package_path)
-        components.append(
-            Component(name=info["package"]["name"], version=info["package"]["version"], purl=purl)
-        )
+        purl = _generate_purl_main_package(info, package_path)
+        components.append(Component(name=info.name, version=info.version, purl=purl))
 
-        for dependency in info["dependencies"]:
-            purl = _generate_purl_dependency(dependency)
-            version = dependency["version"] if dependency["kind"] == "pypi" else None
+        for dep in info.requires:
+            components.append(dep.to_component(build_dependency=False))
+        for dep in info.build_requires:
+            components.append(dep.to_component(build_dependency=True))
 
-            missing_hash_in_file: frozenset = frozenset()
-            if dependency["missing_req_file_checksum"]:
-                missing_hash_in_file = frozenset({dependency["requirement_file"]})
-
-            pip_package_binary = False
-            if dependency["package_type"] == "wheel":
-                pip_package_binary = True
-
-            pip_build_dependency = False
-            if dependency["build_dependency"] is True:
-                pip_build_dependency = True
-
-            components.append(
-                Component(
-                    name=dependency["name"],
-                    version=version,
-                    purl=purl,
-                    properties=PropertySet(
-                        missing_hash_in_file=missing_hash_in_file,
-                        pip_package_binary=pip_package_binary,
-                        pip_build_dependency=pip_build_dependency,
-                    ).to_properties(),
-                )
-            )
-
-        replaced_requirements_files = map(_replace_external_requirements, info["requirements"])
+        replaced_requirements_files = map(_replace_external_requirements, info.requirements)
         project_files.extend(filter(None, replaced_requirements_files))
         # each package can have Rust dependencies
-        packages_containing_rust_code += info["packages_containing_rust_code"]
+        packages_containing_rust_code += info.packages_containing_rust_code
 
     annotations = []
     if backend_annotation := create_backend_annotation(components, "pip"):
@@ -126,11 +117,11 @@ def fetch_pip_source(request: Request) -> RequestOutput:
     return pip_packages + cargo_packages
 
 
-def _generate_purl_main_package(package: dict[str, Any], package_path: RootedPath) -> str:
+def _generate_purl_main_package(package: PipPackageInfo, package_path: RootedPath) -> str:
     """Get the purl for this package."""
     type = "pypi"
-    name = package["name"]
-    version = package["version"]
+    name = package.name
+    version = package.version
     try:
         qualifiers = get_vcs_qualifiers(package_path.root)
     except NotAGitRepo:
@@ -150,37 +141,6 @@ def _generate_purl_main_package(package: dict[str, Any], package_path: RootedPat
         version=version,
         qualifiers=qualifiers,
         subpath=subpath,
-    )
-
-    return purl.to_string()
-
-
-def _generate_purl_dependency(package: dict[str, Any]) -> str:
-    """Get the purl for this dependency."""
-    type = "pypi"
-    name = package["name"]
-    dependency_kind = package.get("kind", None)
-    version = None
-    qualifiers: dict[str, str] | None = None
-
-    if dependency_kind == "pypi":
-        version = package["version"]
-        index_url = package["index_url"]
-        if index_url.rstrip("/") != pypi_simple.PYPI_SIMPLE_ENDPOINT.rstrip("/"):
-            qualifiers = {"repository_url": index_url}
-    elif dependency_kind == "vcs":
-        qualifiers = {"vcs_url": package["version"]}
-    elif dependency_kind == "url":
-        qualifiers = {"download_url": package["version"], "checksum": package["checksum"]}
-    else:
-        # Should not happen
-        raise RuntimeError(f"Unexpected requirement kind: {dependency_kind}")
-
-    purl = PackageURL(
-        type=type,
-        name=name,
-        version=version,
-        qualifiers=qualifiers,
     )
 
     return purl.to_string()
@@ -269,133 +229,221 @@ def _get_pip_metadata(package_dir: RootedPath) -> tuple[str, str | None]:
     return name, version
 
 
-def _process_req(
+def _checksum_must_match_or_path_unlink(path: Path, checksum_info: Iterable[ChecksumInfo]) -> bool:
+    try:
+        must_match_any_checksum(path, checksum_info)
+        return True
+    except PackageRejected:
+        path.unlink(missing_ok=True)
+        log.warning("Download '%s' was removed from the output directory", path.name)
+        return False
+
+
+def _download_pypi_packages(
+    requirements_file: PipRequirementsFile,
+    pip_deps_dir: RootedPath,
+    pypi_artifacts: list[_PyPIArtifact],
+    index_url: str,
+    proxy_url: str | None = None,
+    auth: str | None = None,
+) -> list[PyPIPackage]:
+    files = {dpi.url: dpi.path for _, dpi in pypi_artifacts if not dpi.path.exists()}
+    if files:
+        headers = None
+        if auth is not None:
+            headers = {url: {"Authorization": auth} for url in files}
+        log.info("Downloading %d PyPI artifacts", len(files))
+        asyncio.run(
+            async_download_files(files, get_config().runtime.concurrency_limit, headers=headers)
+        )
+
+    result: list[PyPIPackage] = []
+    for req, dpi in pypi_artifacts:
+        missing_req_file_checksum = not bool(dpi.req_file_checksums)
+        if dpi.checksums_to_match:
+            if not _checksum_must_match_or_path_unlink(dpi.path, dpi.checksums_to_match):
+                continue
+        if dpi.package_type == "sdist":
+            _check_metadata_in_sdist(dpi.path)
+
+        dep = PyPIPackage(
+            name=dpi.name,
+            path=dpi.path,
+            requirement_file=str(requirements_file.file_path.subpath_from_root),
+            missing_req_file_checksum=missing_req_file_checksum,
+            package_type=dpi.package_type,
+            version=dpi.version,
+            index_url=index_url,
+            proxy_url=proxy_url,
+        )
+        log.debug(
+            "Successfully processed '%s' in path '%s'",
+            req.download_line,
+            dep.path.relative_to(pip_deps_dir.root),
+        )
+        result.append(dep)
+    return result
+
+
+def _download_vcs_package(
     req: PipRequirement,
     requirements_file: PipRequirementsFile,
     pip_deps_dir: RootedPath,
-    download_info: dict[str, Any],
-    dpi: DistributionPackageInfo | None = None,
-) -> dict[str, Any]:
-    download_info["kind"] = req.kind
-    download_info["requirement_file"] = str(requirements_file.file_path.subpath_from_root)
-    download_info["missing_req_file_checksum"] = True
-    download_info["package_type"] = ""
+) -> VCSPackage:
+    """Fetch a Python package from VCS (only git is supported)."""
+    git_info = extract_git_info(req.url)
 
-    def _checksum_must_match_or_path_unlink(
-        path: Path, checksum_info: Iterable[ChecksumInfo]
-    ) -> None:
-        try:
-            # returns None, raises PackageRejected on failure
-            must_match_any_checksum(path, checksum_info)
-        except PackageRejected:
-            path.unlink()
-            log.warning("Download '%s' was removed from the output directory", path.name)
+    download_to = pip_deps_dir.join_within_root(_get_external_requirement_filepath(req))
+    download_to.path.parent.mkdir(exist_ok=True, parents=True)
 
-    if dpi:
-        if dpi.req_file_checksums:
-            download_info["missing_req_file_checksum"] = False
-        if dpi.checksums_to_match:
-            _checksum_must_match_or_path_unlink(dpi.path, dpi.checksums_to_match)
-        if dpi.package_type == "sdist":
-            _check_metadata_in_sdist(dpi.path)
-        download_info["package_type"] = dpi.package_type
-        download_info["index_url"] = dpi.index_url
-    elif req.kind == "vcs":
-        # `missing_req_file_checksum` is *always* True for VCS deps
-        pass
-    else:
-        if req.kind == "url":
-            hashes = req.hashes
-            if hashes:
-                download_info["missing_req_file_checksum"] = False
-                _checksum_must_match_or_path_unlink(
-                    download_info["path"], list(map(ChecksumInfo.from_hash, hashes))
-                )
+    clone_as_tarball(git_info["url"], git_info["ref"], to_path=download_to.path)
 
+    dep = VCSPackage(
+        name=req.package,
+        path=download_to.path,
+        requirement_file=str(requirements_file.file_path.subpath_from_root),
+        missing_req_file_checksum=True,
+        package_type="",
+        url=git_info["url"],
+        ref=git_info["ref"],
+    )
     log.debug(
         "Successfully processed '%s' in path '%s'",
         req.download_line,
-        download_info["path"].relative_to(pip_deps_dir.root),
+        dep.path.relative_to(pip_deps_dir.root),
     )
+    return dep
 
-    return download_info
 
-
-def _process_pypi_req(
+def _download_url_package(
     req: PipRequirement,
     requirements_file: PipRequirementsFile,
-    index_url: str,
     pip_deps_dir: RootedPath,
-    binary_filters: PipBinaryFilters | None = None,
-) -> list[dict[str, Any]]:
-    download_infos: list[dict[str, Any]] = []
+    trusted_hosts: set[str],
+) -> URLPackage | None:
+    """Download a Python package from a URL.
 
-    artifacts: list[DistributionPackageInfo] = process_package_distributions(
-        req, pip_deps_dir, binary_filters, index_url
-    )
-
-    files = {dpi.url: dpi.path for dpi in artifacts if not dpi.path.exists()}
-    asyncio.run(async_download_files(files, get_config().runtime.concurrency_limit))
-
-    for artifact in artifacts:
-        download_infos.append(
-            _process_req(
-                req,
-                requirements_file,
-                pip_deps_dir,
-                artifact.download_info,
-                dpi=artifact,
-            )
-        )
-
-    return download_infos
-
-
-def _process_vcs_req(
-    req: PipRequirement, pip_deps_dir: RootedPath, **kwargs: Any
-) -> dict[str, Any]:
-    return _process_req(
-        req,
-        pip_deps_dir=pip_deps_dir,
-        download_info=_download_vcs_package(req, pip_deps_dir),
-        **kwargs,
-    )
-
-
-def _process_url_req(
-    req: PipRequirement, pip_deps_dir: RootedPath, trusted_hosts: set[str], **kwargs: Any
-) -> dict[str, Any]:
-    result = _process_req(
-        req,
-        pip_deps_dir=pip_deps_dir,
-        download_info=_download_url_package(req, pip_deps_dir, trusted_hosts),
-        **kwargs,
-    )
+    :param trusted_hosts: if host (or host:port) is trusted, do not verify SSL
+    """
     parsed_url = urlparse.urlparse(req.url)
-    if parsed_url.path.endswith(WHEEL_FILE_EXTENSION):
-        result["package_type"] = "wheel"
 
-    return result
+    download_to = pip_deps_dir.join_within_root(_get_external_requirement_filepath(req))
+    download_to.path.parent.mkdir(exist_ok=True, parents=True)
+
+    if parsed_url.port is not None and f"{parsed_url.hostname}:{parsed_url.port}" in trusted_hosts:
+        log.debug(
+            "Disabling SSL verification, %s:%s is a --trusted-host",
+            parsed_url.hostname,
+            parsed_url.port,
+        )
+        insecure = True
+    elif parsed_url.hostname in trusted_hosts:
+        log.debug("Disabling SSL verification, %s is a --trusted-host", parsed_url.hostname)
+        insecure = True
+    else:
+        insecure = False
+
+    download_binary_file(req.url, download_to.path, insecure=insecure)
+
+    hashes = req.hashes
+    missing_req_file_checksum = True
+    if hashes:
+        missing_req_file_checksum = False
+        if not _checksum_must_match_or_path_unlink(
+            download_to.path, list(map(ChecksumInfo.from_hash, hashes))
+        ):
+            return None
+
+    dep = URLPackage(
+        name=req.package,
+        path=download_to.path,
+        requirement_file=str(requirements_file.file_path.subpath_from_root),
+        missing_req_file_checksum=missing_req_file_checksum,
+        package_type="wheel" if parsed_url.path.endswith(WHEEL_FILE_EXTENSION) else "",
+        original_url=req.url,
+        checksum=req.hashes[0],
+    )
+    log.debug(
+        "Successfully processed '%s' in path '%s'",
+        req.download_line,
+        dep.path.relative_to(pip_deps_dir.root),
+    )
+    return dep
+
+
+async def _resolve_pypi_distributions(
+    reqs: list[PipRequirement],
+    resolve_callback: Callable[[PipRequirement], list[DistributionPackageInfo]],
+) -> list[list[DistributionPackageInfo]]:
+    """Resolve PyPI distributions for all requirements concurrently."""
+    loop = asyncio.get_running_loop()
+    tasks = [loop.run_in_executor(None, resolve_callback, req) for req in reqs]
+    return await asyncio.gather(*tasks)
+
+
+def _resolve_and_download_pypi_packages(
+    pypi_reqs: list[PipRequirement],
+    requirements_file: PipRequirementsFile,
+    pip_deps_dir: RootedPath,
+    binary_filters: PipBinaryFilters | None,
+    index_url: str,
+) -> list[PyPIPackage]:
+    """Resolve and download all PyPI packages."""
+    config = get_config()
+    proxy_url = str(config.pip.proxy_url) if config.pip.proxy_url is not None else None
+    # A proxy must be used only if an index is the standard one, custom indices must
+    # be preserved. A custom index would always override proxy.
+    is_standard = lambda index_url: index_url and index_url == pypi_simple.PYPI_SIMPLE_ENDPOINT
+    query_url = proxy_url if (proxy_url is not None and is_standard(index_url)) else index_url
+    requests_auth = None
+    aiohttp_auth = None
+    # No attempt should be made at logging into custom indices, if query URL ends up pointing
+    # to a custom index then authorization must be skipped.
+    if config.pip.proxy_login and config.pip.proxy_password and (query_url == proxy_url):
+        requests_auth = requests.auth.HTTPBasicAuth(
+            config.pip.proxy_login, config.pip.proxy_password
+        )
+        aiohttp_auth = aiohttp.encode_basic_auth(config.pip.proxy_login, config.pip.proxy_password)
+
+    resolve_callback = functools.partial(
+        process_package_distributions,
+        pip_deps_dir=pip_deps_dir,
+        binary_filters=binary_filters,
+        index_url=query_url,
+        auth=requests_auth,
+    )
+    pypi_dpis = asyncio.run(_resolve_pypi_distributions(pypi_reqs, resolve_callback))
+    reqs_dpis_zipped = zip(pypi_reqs, pypi_dpis)
+    pypi_artifacts = [_PyPIArtifact(req, dpi) for req, dpis in reqs_dpis_zipped for dpi in dpis]
+    # If a standard PyPI index is used with proxy URL then proxy URL must be reported,
+    # if a custom index is used then proxy URL must not be reported even if set.
+    proxy_to_report = proxy_url if (proxy_url is not None and (proxy_url != index_url)) else None
+    return _download_pypi_packages(
+        requirements_file,
+        pip_deps_dir,
+        pypi_artifacts,
+        index_url=index_url,
+        proxy_url=proxy_to_report,
+        auth=aiohttp_auth,
+    )
 
 
 def _download_dependencies(
     output_dir: RootedPath,
     requirements_file: PipRequirementsFile,
     binary_filters: PipBinaryFilters | None = None,
-) -> list[dict[str, Any]]:
+) -> list[PipPackage]:
     """
     Download artifacts of all dependency packages in a requirements.txt file.
 
     :param output_dir: the root output directory for this request
     :param requirements_file: A requirements.txt file
     :param binary_filters: process wheels?
-    :return: Info about downloaded packages; all items will contain "kind" and "path" keys
-        (and more based on kind, see _download_*_package functions for more details)
-    :rtype: list[dict]
+    :return: list of PipPackage instances for each downloaded package
     """
     options: dict[str, Any] = process_requirements_options(requirements_file.options)
     trusted_hosts = set(options["trusted_hosts"])
-    processed: list[dict[str, Any]] = []
+    processed: list[PipPackage] = []
 
     if options["require_hashes"]:
         log.info("Global --require-hashes option used, will require hashes")
@@ -415,116 +463,52 @@ def _download_dependencies(
     pip_deps_dir: RootedPath = output_dir.join_within_root("deps", "pip")
     pip_deps_dir.path.mkdir(parents=True, exist_ok=True)
 
+    pypi_reqs: list[PipRequirement] = []
     for req in requirements_file.requirements:
         log.info("-- Processing requirement line '%s'", req.download_line)
         if req.kind == "pypi":
-            download_infos: list[dict[str, Any]] = _process_pypi_req(
-                req,
-                requirements_file=requirements_file,
-                index_url=options["index_url"] or pypi_simple.PYPI_SIMPLE_ENDPOINT,
-                pip_deps_dir=pip_deps_dir,
-                binary_filters=binary_filters,
-            )
-            processed.extend(download_infos)
+            pypi_reqs.append(req)
+            continue
         elif req.kind == "vcs":
-            download_info = _process_vcs_req(
-                req,
-                requirements_file=requirements_file,
-                pip_deps_dir=pip_deps_dir,
-            )
-            processed.append(download_info)
+            processed.append(_download_vcs_package(req, requirements_file, pip_deps_dir))
         elif req.kind == "url":
-            download_info = _process_url_req(
-                req,
-                requirements_file=requirements_file,
-                pip_deps_dir=pip_deps_dir,
-                trusted_hosts=trusted_hosts,
+            download_info = _download_url_package(
+                req, requirements_file, pip_deps_dir, trusted_hosts
             )
-            processed.append(download_info)
+            if download_info is not None:
+                processed.append(download_info)
         else:
             # Should not happen
             raise RuntimeError(f"Unexpected requirement kind: '{req.kind!r}'")
 
-        log.info("-- Finished processing requirement line '%s'\n", req.download_line)
+        log.info("-- Finished processing requirement line '%s'", req.download_line)
+
+    if pypi_reqs:
+        index_url = options["index_url"] or pypi_simple.PYPI_SIMPLE_ENDPOINT
+        processed.extend(
+            _resolve_and_download_pypi_packages(
+                pypi_reqs, requirements_file, pip_deps_dir, binary_filters, index_url
+            )
+        )
 
     return processed
-
-
-def _download_vcs_package(requirement: PipRequirement, pip_deps_dir: RootedPath) -> dict[str, Any]:
-    """
-    Fetch the source for a Python package from VCS (only git is supported).
-
-    :param PipRequirement requirement: VCS requirement from a requirements.txt file
-    :param RootedPath pip_deps_dir: The deps/pip directory in an application request bundle
-
-    :return: Dict with package name, download path and git info
-    """
-    git_info = extract_git_info(requirement.url)
-
-    download_to = pip_deps_dir.join_within_root(_get_external_requirement_filepath(requirement))
-    download_to.path.parent.mkdir(exist_ok=True, parents=True)
-
-    clone_as_tarball(git_info["url"], git_info["ref"], to_path=download_to.path)
-
-    return {
-        "package": requirement.package,
-        "path": download_to.path,
-        **git_info,
-    }
-
-
-def _download_url_package(
-    requirement: PipRequirement, pip_deps_dir: RootedPath, trusted_hosts: set[str]
-) -> dict[str, Any]:
-    """
-    Download a Python package from a URL.
-
-    :param PipRequirement requirement: URL requirement from a requirements.txt file
-    :param RootedPath pip_deps_dir: The deps/pip directory in an application request bundle
-    :param set[str] trusted_hosts: If host (or host:port) is trusted, do not verify SSL
-
-    :return: Dict with package name, download path, original URL and URL with hash
-    """
-    url = urlparse.urlparse(requirement.url)
-
-    download_to = pip_deps_dir.join_within_root(_get_external_requirement_filepath(requirement))
-    download_to.path.parent.mkdir(exist_ok=True, parents=True)
-
-    if url.port is not None and f"{url.hostname}:{url.port}" in trusted_hosts:
-        log.debug("Disabling SSL verification, %s:%s is a --trusted-host", url.hostname, url.port)
-        insecure = True
-    elif url.hostname in trusted_hosts:
-        log.debug("Disabling SSL verification, %s is a --trusted-host", url.hostname)
-        insecure = True
-    else:
-        insecure = False
-
-    download_binary_file(requirement.url, download_to.path, insecure=insecure)
-
-    return {
-        "package": requirement.package,
-        "path": download_to.path,
-        "original_url": requirement.url,
-        "checksum": requirement.hashes[0],
-    }
 
 
 def _download_from_requirement_files(
     output_dir: RootedPath,
     files: list[RootedPath],
     binary_filters: PipBinaryFilters | None = None,
-) -> list[dict[str, Any]]:
+) -> list[PipPackage]:
     """
     Download dependencies listed in the requirement files.
 
     :param output_dir: the root output directory for this request
     :param files: list of absolute paths to pip requirements files
     :param binary_filters: process wheels?
-    :return: Info about downloaded packages; see download_dependencies return docs for further
-        reference
+    :return: list of PipPackage instances for each downloaded package
     :raises PackageRejected: If requirement file does not exist
     """
-    requirements: list[dict[str, Any]] = []
+    requirements: list[PipPackage] = []
     for req_file in files:
         if not req_file.path.exists():
             raise LockfileNotFound(
@@ -557,23 +541,11 @@ def _resolve_pip(
     requirement_files: list[Path] | None = None,
     build_requirement_files: list[Path] | None = None,
     binary_filters: PipBinaryFilters | None = None,
-) -> dict[str, Any]:
-    """
-    Resolve and fetch pip dependencies for the given pip application.
+) -> PipPackageInfo:
+    """Resolve and fetch pip dependencies for the given pip application.
 
-    :param app_path: the full path to the application source code
-    :param output_dir: the root output directory for this request
-    :param list requirement_files: a list of str representing paths to the Python requirement files
-        to be used to compile a list of dependencies to be fetched
-    :param list build_requirement_files: a list of str representing paths to the Python build
-        requirement files to be used to compile a list of build dependencies to be fetched
-    :param binary_filters: process wheels?
-    :return: a dictionary that has the following keys:
-        ``package`` which is the dict representing the main Package,
-        ``dependencies`` which is a list of dicts representing the package Dependencies
-        ``requirements`` which is a list of absolute paths for the processed requirement files
     :raises PackageRejected | UnsupportedFeature: if the package is not compatible with our
-    requirements/expectations
+        requirements/expectations
     """
     pkg_name, pkg_version = _get_pip_metadata(package_path)
 
@@ -588,55 +560,42 @@ def _resolve_pip(
         return resolved
 
     resolved_req_files = resolve_req_files(requirement_files, False)
+    if not resolved_req_files:
+        log.warning("No requirements files found, no dependencies will be fetched")
+    else:
+        log.info(
+            "Using requirements files: %s",
+            ", ".join(str(f.subpath_from_root) for f in resolved_req_files),
+        )
+
     resolved_build_req_files = resolve_req_files(build_requirement_files, True)
+    if not resolved_build_req_files:
+        log.info("No build requirements files found")
+    else:
+        log.info(
+            "Using build requirements files: %s",
+            ", ".join(str(f.subpath_from_root) for f in resolved_build_req_files),
+        )
 
     requires = _download_from_requirement_files(output_dir, resolved_req_files, binary_filters)
     build_requires = _download_from_requirement_files(
         output_dir, resolved_build_req_files, binary_filters
     )
 
+    all_deps = requires + build_requires
     if get_config().pip.ignore_dependencies_crates:
         packages_containing_rust_code = []
     else:
-        packages_containing_rust_code = filter_packages_with_rust_code(requires + build_requires)
+        packages_containing_rust_code = filter_packages_with_rust_code(all_deps)
 
-    # Mark all build dependencies as such
-    for dependency in build_requires:
-        dependency["build_dependency"] = True
-
-    def _version(dep: dict[str, Any]) -> str:
-        if dep["kind"] == "pypi":
-            version = dep["version"]
-        elif dep["kind"] == "vcs":
-            # Version is "git+" followed by the URL used to fetch from git
-            version = f"git+{dep['url']}@{dep['ref']}"
-        else:
-            # Version is the original URL for URL dependencies
-            version = dep["original_url"]
-        return version
-
-    dependencies = [
-        {
-            "name": dep["package"],
-            "version": _version(dep),
-            "checksum": dep.get("checksum"),
-            "index_url": dep.get("index_url"),
-            "type": "pip",
-            "build_dependency": dep.get("build_dependency", False),
-            "kind": dep["kind"],
-            "requirement_file": dep["requirement_file"],
-            "missing_req_file_checksum": dep["missing_req_file_checksum"],
-            "package_type": dep["package_type"],
-        }
-        for dep in (requires + build_requires)
-    ]
-
-    return {
-        "package": {"name": pkg_name, "version": pkg_version, "type": "pip"},
-        "dependencies": dependencies,
-        "requirements": [*resolved_req_files, *resolved_build_req_files],
-        "packages_containing_rust_code": packages_containing_rust_code,
-    }
+    return PipPackageInfo(
+        name=pkg_name,
+        version=pkg_version,
+        requires=requires,
+        build_requires=build_requires,
+        requirements=[*resolved_req_files, *resolved_build_req_files],
+        packages_containing_rust_code=packages_containing_rust_code,
+    )
 
 
 def _get_external_requirement_filepath(requirement: PipRequirement) -> Path:
@@ -721,13 +680,9 @@ def _check_metadata_in_sdist(sdist_path: Path) -> None:
                 ),
             )
     except tarfile.ReadError as e:
-        raise PackageRejected(
-            f"Cannot open {sdist_path} as a Tar file. Error: {str(e)}", solution=None
-        )
+        raise PackageRejected(f"Cannot open {sdist_path} as a Tar file. Error: {e}")
     except zipfile.BadZipFile as e:
-        raise PackageRejected(
-            f"Cannot open {sdist_path} as a Zip file. Error: {str(e)}", solution=None
-        )
+        raise PackageRejected(f"Cannot open {sdist_path} as a Zip file. Error: {e}")
 
 
 def _replace_external_requirements(requirements_file_path: RootedPath) -> ProjectFile | None:

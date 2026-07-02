@@ -9,19 +9,42 @@ from urllib.parse import urlparse
 import aiohttp
 import aiohttp_retry
 import requests
+from requests import Session
+from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase
+from urllib3.util.retry import Retry
 
 from hermeto.core.config import get_config
 from hermeto.core.errors import FetchError
 from hermeto.core.http_requests import (
     DEFAULT_RETRY_OPTIONS,
     SAFE_REQUEST_METHODS,
-    get_requests_session,
 )
 from hermeto.core.scm import get_repo_id
 from hermeto.core.type_aliases import StrPath
 
-pkg_requests_session = get_requests_session(retry_options={"allowed_methods": SAFE_REQUEST_METHODS})
+_pkg_requests_session: requests.Session | None = None
+
+
+def _get_pkg_requests_session() -> requests.Session:
+    """
+    A lazy initialised, module-level requests.Session with retry config.
+    """
+    global _pkg_requests_session
+    if _pkg_requests_session is None:
+        max_retries = get_config().http.max_retries
+        retry_options = {
+            **DEFAULT_RETRY_OPTIONS,
+            "allowed_methods": SAFE_REQUEST_METHODS,
+            "total": max_retries,
+        }
+        _pkg_requests_session = Session()
+        adapter = HTTPAdapter(max_retries=Retry(**retry_options))
+        _pkg_requests_session.mount("http://", adapter)
+        _pkg_requests_session.mount("https://", adapter)
+
+    return _pkg_requests_session
+
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +69,7 @@ def download_binary_file(
     config = get_config()
     timeout = (config.http.connect_timeout, config.http.read_timeout)
     try:
-        resp = pkg_requests_session.get(
+        resp = _get_pkg_requests_session().get(
             url, stream=True, verify=not insecure, auth=auth, timeout=timeout
         )
         resp.raise_for_status()
@@ -72,7 +95,7 @@ async def _async_download_binary_file(
     session: aiohttp_retry.RetryClient,
     url: str,
     download_path: StrPath,
-    auth: aiohttp.BasicAuth | None = None,
+    headers: dict[str, str] | None = None,
     ssl_context: ssl.SSLContext | None = None,
     chunk_size: int = 8192,
 ) -> None:
@@ -82,7 +105,7 @@ async def _async_download_binary_file(
     :param aiohttp_retry.RetryClient session: Aiohttp interface for making HTTP requests.
     :param str url: URL for file download
     :param str download_path: File path location
-    :param aiohttp.BasicAuth auth: Authentication for the URL
+    :param headers: Optional headers dict for this request.
     :param int chunk_size: Chunk size param for Response.content.read()
     :raise FetchError: If download failed
     """
@@ -92,12 +115,13 @@ async def _async_download_binary_file(
         log.debug(
             f"aiohttp.ClientSession.get(url: {url}, timeout: {timeout}, raise_for_status: True)"
         )
+
         async with session.get(
             url,
             timeout=timeout,
-            auth=auth,
             raise_for_status=True,
             ssl=ssl_context,
+            headers=headers,
         ) as resp:
             with open(download_path, "wb") as f:
                 while True:
@@ -120,19 +144,22 @@ async def async_download_files(
     files_to_download: Mapping[str, StrPath],
     concurrency_limit: int,
     ssl_context: ssl.SSLContext | None = None,
-    auth: aiohttp.BasicAuth | None = None,
+    headers: Mapping[str, dict[str, str]] | None = None,
 ) -> None:
     """Asynchronous function to download files.
 
-    :param files_to_download: Mapping of URLs and file paths to download.
+    :param files_to_download: Mapping of URLs to file paths to download.
     :param concurrency_limit: Max number of concurrent tasks (downloads).
     :param ssl_context: Optional SSL context for the requests.
-    :param auth: Optional authorization data for proxies.
+    :param headers: Optional per-URL headers mapping (URL -> headers dict).
     """
     trace_config = aiohttp.TraceConfig()
-    num_attempts: int = int(DEFAULT_RETRY_OPTIONS["total"])
+    max_retries = get_config().http.max_retries
+    # aiohttp uses n calls (1 call, n-1 retries).
+    max_retries = max_retries + 1
     retry_options = aiohttp_retry.JitterRetry(
-        attempts=num_attempts,
+        start_timeout=DEFAULT_RETRY_OPTIONS["backoff_factor"],
+        attempts=max_retries,
         statuses=set(DEFAULT_RETRY_OPTIONS["status_forcelist"]),
         exceptions={
             aiohttp.ClientConnectionError,
@@ -144,6 +171,8 @@ async def async_download_files(
         trace_configs=[trace_config],
         # respect proxy settings and .netrc
         trust_env=True,
+        # preserve percent-encoding in redirect URLs (e.g. signed CloudFront URLs)
+        requote_redirect_url=False,
     )
 
     async with retry_client as session:
@@ -171,7 +200,7 @@ async def async_download_files(
                         url,
                         download_path,
                         ssl_context=ssl_context,
-                        auth=auth,
+                        headers=headers.get(url) if headers else None,
                     )
                 )
             )

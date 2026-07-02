@@ -120,7 +120,7 @@ class ProxyMixin(BaseModel):
         return self
 
 
-class PipSettings(BaseModel, extra="forbid"):
+class PipSettings(ProxyMixin, extra="forbid"):
     """Settings for Pip."""
 
     # This setting exists for legacy use-cases only and must not be relied upon
@@ -134,10 +134,12 @@ class YarnSettings(ProxyMixin, extra="forbid"):
     enabled: bool = True
 
 
-class GomodSettings(BaseModel, extra="forbid"):
+class GomodSettings(ProxyMixin, extra="forbid"):
     """Settings for Go modules."""
 
-    proxy_url: str = "https://proxy.golang.org,direct"
+    # TODO: refactor typesystem to trivially include comma-separated lists of URLs.
+    # Ignore type error until that happens.
+    proxy_url: str = "https://proxy.golang.org,direct"  # type: ignore
     download_max_tries: int = 5
     environment_variables: dict[str, str] = {}
 
@@ -147,6 +149,7 @@ class HttpSettings(BaseModel, extra="forbid"):
 
     connect_timeout: int = 30
     read_timeout: int = 300
+    max_retries: int = 5
 
 
 class RuntimeSettings(BaseModel, extra="forbid"):
@@ -165,6 +168,10 @@ class NpmSettings(ProxyMixin, extra="forbid"):
     """Npm settings."""
 
 
+class PnpmSettings(ProxyMixin, extra="forbid"):
+    """Pnpm settings."""
+
+
 class Config(BaseSettings):
     """Singleton that provides default configuration for the application process."""
 
@@ -180,6 +187,7 @@ class Config(BaseSettings):
     pip: PipSettings = PipSettings()
     yarn: YarnSettings = YarnSettings()
     npm: NpmSettings = NpmSettings()
+    pnpm: PnpmSettings = PnpmSettings()
     gomod: GomodSettings = GomodSettings()
     http: HttpSettings = HttpSettings()
     runtime: RuntimeSettings = RuntimeSettings()

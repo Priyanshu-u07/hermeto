@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
+import json
 from pathlib import Path
 from textwrap import dedent
 
@@ -47,13 +48,13 @@ def test_cannot_determine_format(filename: str, expect_reason: str) -> None:
 
 def test_generate_env_as_json() -> None:
     env_vars = [
-        {"name": "GOCACHE", "value": "deps/gomod", "kind": "path"},
-        {"name": "GOSUMDB", "value": "sum.golang.org", "kind": "literal"},
+        {"name": "GOCACHE", "value": "${output_dir}/deps/gomod"},
+        {"name": "GOSUMDB", "value": "off"},
     ]
     build_config = BuildConfig(environment_variables=env_vars, project_files=[])
 
     gocache = '{"name": "GOCACHE", "value": "/output/dir/deps/gomod"}'
-    gosumdb = '{"name": "GOSUMDB", "value": "sum.golang.org"}'
+    gosumdb = '{"name": "GOSUMDB", "value": "off"}'
     expect_content = f"[{gocache}, {gosumdb}]"
 
     content = generate_envfile(build_config, EnvFormat.json, relative_to_path=Path("/output/dir"))
@@ -62,19 +63,39 @@ def test_generate_env_as_json() -> None:
 
 def test_generate_env_as_env() -> None:
     env_vars = [
-        {"name": "GOCACHE", "value": "deps/gomod", "kind": "path"},
-        {"name": "GOSUMDB", "value": "sum.golang.org", "kind": "literal"},
-        {"name": "SNEAKY", "value": "foo; echo hello there", "kind": "literal"},
+        {"name": "GOCACHE", "value": "${output_dir}/deps/gomod"},
+        {"name": "GOSUMDB", "value": "off"},
+        {"name": "SNEAKY", "value": "foo; echo hello there"},
     ]
     build_config = BuildConfig(environment_variables=env_vars, project_files=[])
 
     expect_content = dedent(
         """
         export GOCACHE=/output/dir/deps/gomod
-        export GOSUMDB=sum.golang.org
+        export GOSUMDB=off
         export SNEAKY='foo; echo hello there'
         """
     ).strip()
 
     content = generate_envfile(build_config, EnvFormat.env, relative_to_path=Path("/output/dir"))
     assert content == expect_content
+
+
+def test_generate_env_dependent_var() -> None:
+    build_config = BuildConfig(
+        environment_variables=[
+            {"name": "GOMODCACHE", "value": "${output_dir}/deps/gomod/pkg/mod"},
+            {"name": "GOPROXY", "value": "file://${GOMODCACHE}/cache/download"},
+        ],
+        project_files=[],
+    )
+
+    content = generate_envfile(build_config, EnvFormat.json, relative_to_path=Path("/tmp/output"))
+
+    expected = json.dumps(
+        [
+            {"name": "GOMODCACHE", "value": "/tmp/output/deps/gomod/pkg/mod"},
+            {"name": "GOPROXY", "value": "file:///tmp/output/deps/gomod/pkg/mod/cache/download"},
+        ]
+    )
+    assert content == expected

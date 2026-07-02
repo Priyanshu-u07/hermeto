@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-only
-import logging
 from pathlib import Path
 
 import pytest
 
-from . import utils
+from hermeto.core.errors import ExitError
 
-log = logging.getLogger(__name__)
+from . import utils
 
 
 @pytest.mark.parametrize(
@@ -17,8 +16,7 @@ log = logging.getLogger(__name__)
                 branch="bundler/missing-gemfile",
                 packages=({"path": ".", "type": "bundler"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=2,
+                expected_error=ExitError.ERR_LOCKFILE_NOT_FOUND,
                 expected_output="Required files not found:",
             ),
             id="bundler_missing_gemfile",
@@ -28,8 +26,7 @@ log = logging.getLogger(__name__)
                 branch="bundler/missing-lockfile",
                 packages=({"path": ".", "type": "bundler"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=2,
+                expected_error=ExitError.ERR_LOCKFILE_NOT_FOUND,
                 expected_output="Required files not found:",
             ),
             id="bundler_missing_lockfile",
@@ -39,8 +36,7 @@ log = logging.getLogger(__name__)
                 branch="bundler/missing-git-revision",
                 packages=({"path": ".", "type": "bundler"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=1,
+                expected_error=ExitError.ERR_PACKAGE_MANAGER,
                 expected_output="Failed to parse",
             ),
             id="bundler_missing_git_revision",
@@ -71,9 +67,6 @@ def test_bundler_packages(
                 branch="bundler/e2e",
                 packages=({"path": ".", "type": "bundler", "binary": {}},),
                 check_output=True,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             [],  # No additional commands are run to verify the build
             [],
@@ -84,9 +77,6 @@ def test_bundler_packages(
                 branch="bundler/e2e-missing-gemspec",
                 packages=({"path": ".", "type": "bundler", "binary": {}},),
                 check_output=True,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             [],  # No additional commands are run to verify the build
             [],

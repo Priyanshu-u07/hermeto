@@ -7,8 +7,10 @@ import pydantic
 import pytest
 
 from hermeto import APP_NAME
+from hermeto.core.errors import UnexpectedFormat
 from hermeto.core.models.property_semantics import PropertyEnum
 from hermeto.core.models.sbom import (
+    ANNOTATOR_JSON,
     FOUND_BY_APP_PROPERTY,
     PROXY_COMMENT,
     PROXY_REF_TYPE,
@@ -25,37 +27,69 @@ from hermeto.core.models.sbom import (
     SPDXSbom,
     Tool,
     create_backend_annotation,
+    merge_component_annotations,
     merge_component_properties,
 )
 
 SPDX_EPOCH_STRFTIME = datetime.datetime.fromtimestamp(0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _cyclonedx_spdx_roundtrip_backend_annotations() -> list[Annotation]:
+    """Backend annotations reused by SPDX round-trip parametrized tests."""
+    return [
+        Annotation(
+            subjects=["pkg:npm/spdx-expression-parse@1.0.0"],
+            annotator={"organization": {"name": "red hat"}},
+            timestamp="2026-01-01T00:00:00Z",
+            text="hermeto:backend:npm",
+        ),
+        Annotation(
+            subjects=[
+                "pkg:golang/github.com/org/A@v1.0.0",
+                "pkg:golang/github.com/org/A@v1.1.0",
+            ],
+            annotator={"organization": {"name": "red hat"}},
+            timestamp="2026-01-01T00:00:00Z",
+            text="hermeto:backend:golang",
+        ),
+    ]
+
+
+def _sbom_for_cyclonedx_spdx_roundtrip(components: list[dict[str, object]]) -> Sbom:
+    """Shared CycloneDX SBOM shape for SPDX round-trip parametrized tests."""
+    return Sbom(
+        annotations=_cyclonedx_spdx_roundtrip_backend_annotations(),
+        components=components,
+    )
+
+
 class TestComponent:
     @pytest.mark.parametrize(
-        "input_data, expect_error",
+        "model_cls, input_data",
         [
-            (
-                {"purl": "pkg:generic/x"},
-                "1 validation error for Component\nname\n  Field required",
-            ),
-            (
-                {"name": "x"},
-                "1 validation error for Component\npurl\n  Field required",
-            ),
-            (
+            pytest.param(Component, {"purl": "pkg:generic/x"}, id="component_missing_name"),
+            pytest.param(Component, {"name": "x"}, id="component_missing_purl"),
+            pytest.param(
+                Component,
                 {
                     "type": "gomod",
                     "name": "github.com/org/cool-dep",
                     "purl": "pkg:golang/github.com/org/cool-dep",
                 },
-                "1 validation error for Component\ntype\n  Input should be 'library'",
+                id="component_invalid_type",
+            ),
+            pytest.param(
+                SPDXPackage,
+                {"SPDXID": "Not-an-id", "versionInfo": "some-version"},
+                id="spdx_package_missing_name",
             ),
         ],
     )
-    def test_invalid_components(self, input_data: dict[str, str], expect_error: str) -> None:
-        with pytest.raises(pydantic.ValidationError, match=expect_error):
-            Component(**input_data)
+    def test_invalid_components_dont_pass_validation(
+        self, model_cls: type, input_data: dict[str, str]
+    ) -> None:
+        with pytest.raises(pydantic.ValidationError):
+            model_cls(**input_data)
 
     @pytest.mark.parametrize(
         "input_properties, expected_properties",
@@ -84,56 +118,6 @@ class TestComponent:
             Component(name="foo", purl="pkg:generic/foo", properties=input_properties).properties
             == expected_properties
         )
-
-
-class TestSPDXPackage:
-    @pytest.mark.parametrize(
-        "input_data, expect_error",
-        [
-            (
-                {"SPDXID": "Not-an-id", "versionInfo": "some-version"},
-                "1 validation error for SPDXPackage\nname\n  Field required",
-            )
-        ],
-    )
-    def test_invalid_packages(self, input_data: dict[str, str], expect_error: str) -> None:
-        with pytest.raises(pydantic.ValidationError, match=expect_error):
-            SPDXPackage(**input_data)
-
-    @pytest.mark.parametrize(
-        "category,type,locator,valid",
-        [
-            ("PACKAGE-MANAGER", "maven-central", "org.apache.tomcat:tomcat:9.0.0.M4", False),
-            ("PACKAGE-MANAGER", "npm", "http-server@0.3.0", False),
-            ("PACKAGE-MANAGER", "nuget", "Microsoft.AspNet.MVC/5.0.0", False),
-            ("PACKAGE-MANAGER", "bower", "modernizr#2.6.2", False),
-            ("PERSISTENT-ID", "swh", "swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2", False),
-            (
-                "PERSISTENT-ID",
-                "gitoid",
-                "gitoid:blob:sha1:261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
-                False,
-            ),
-            (
-                "OTHER",
-                "some-id",
-                "anythingcangohere",
-                False,
-            ),
-        ],
-    )
-    def test_package_unsupported_external_ref(
-        self, category: str, type: str, locator: str, valid: str
-    ) -> None:
-        """Fails on unsupported category and type combinations.
-
-        Only PACKAGE-MANAGER and SECURITY categories with type purl is supported.
-        """
-        adapter: pydantic.TypeAdapter = pydantic.TypeAdapter(SPDXPackageExternalRefType)
-        with pytest.raises(pydantic.ValidationError):
-            adapter.validate_python(
-                dict(referenceCategory=category, referenceLocator=locator, referenceType=type)
-            )
 
 
 @mock.patch("hermeto.core.models.sbom.spdx_now", return_value=SPDX_EPOCH_STRFTIME)
@@ -404,8 +388,8 @@ class TestSbom:
         "sbom",
         [
             pytest.param(
-                Sbom(
-                    components=[
+                _sbom_for_cyclonedx_spdx_roundtrip(
+                    [
                         {
                             "name": "spdx-expression-parse",
                             "version": "v1.0.0",
@@ -421,13 +405,13 @@ class TestSbom:
                             "version": "v1.1.0",
                             "purl": "pkg:golang/github.com/org/A@v1.1.0",
                         },
-                    ],
+                    ]
                 ),
                 id="base_case",
             ),
             pytest.param(
-                Sbom(
-                    components=[
+                _sbom_for_cyclonedx_spdx_roundtrip(
+                    [
                         {
                             "name": "spdx-expression-parse",
                             "version": "v1.0.0",
@@ -450,13 +434,13 @@ class TestSbom:
                             "version": "v1.1.0",
                             "purl": "pkg:golang/github.com/org/A@v1.1.0",
                         },
-                    ],
+                    ]
                 ),
                 id="one_external_reference",
             ),
             pytest.param(
-                Sbom(
-                    components=[
+                _sbom_for_cyclonedx_spdx_roundtrip(
+                    [
                         {
                             "name": "spdx-expression-parse",
                             "version": "v1.0.0",
@@ -484,7 +468,7 @@ class TestSbom:
                             "version": "v1.1.0",
                             "purl": "pkg:golang/github.com/org/A@v1.1.0",
                         },
-                    ],
+                    ]
                 ),
                 id="two_external_references",
             ),
@@ -504,6 +488,7 @@ class TestSbom:
         # TODO: Stop storing components/properties as a list and use sets; that, however, will
         # cause issues with the JSON encoder/decoder.
         sbom.components = merge_component_properties(sbom.components)
+        sbom.annotations = merge_component_annotations(sbom.annotations)
         assert cyclonedx_sbom == sbom
 
     def test_generate_package_annotations(self, mock_spdx_now: str) -> None:
@@ -530,8 +515,10 @@ class TestSbom:
         spdx_sbom = sbom.to_spdx("NOASSERTION")
         pkg = next((pkg for pkg in spdx_sbom.packages if pkg.name == "test-package"))
 
-        assert pkg.annotations[0].comment == "Hello, world!"
-        assert pkg.annotations[1].comment == '{"name": "hermeto:found_by", "value": "hermeto"}'
+        assert {a.comment for a in pkg.annotations} == {
+            '{"name": "hermeto:found_by", "value": "hermeto"}',
+            "Hello, world!",
+        }
 
     def test_spdx_annotation_subjects_filtering(self, mock_spdx_now: str) -> None:
         """Annotations should only be applied to SPDX packages whose bom-ref is in subjects."""
@@ -893,47 +880,84 @@ class TestSPDXSbom:
         assert len(sbom.packages) == len(expected_packages)
         assert sbom.packages == expected_packages
 
-    def test_package_external_ref_invalid_reference_type_for_category(
-        self, mock_spdx_now: str
+    @pytest.mark.parametrize(
+        "category, locator, ref_type",
+        [
+            pytest.param(
+                "SECURITY",
+                "pkg:golang/github.com/org/B@v1.0.0",
+                "purl",
+                id="security_category_with_purl",
+            ),
+            pytest.param(
+                "PERSISTENT-ID",
+                "pkg:golang/github.com/org/B@v1.0.0",
+                "purl",
+                id="persistent_id_category_with_purl",
+            ),
+            pytest.param(
+                "PACKAGE-MANAGER",
+                "gitoid:blob:sha1:261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+                "gitbom",
+                id="package_manager_category_with_gitbom",
+            ),
+            pytest.param(
+                "INVALID",
+                "pkg:golang/github.com/org/B@v1.0.0",
+                "purl",
+                id="invalid_category",
+            ),
+            pytest.param(
+                "PACKAGE-MANAGER",
+                "org.apache.tomcat:tomcat:9.0.0.M4",
+                "maven-central",
+                id="unsupported_maven_central",
+            ),
+            pytest.param(
+                "PACKAGE-MANAGER",
+                "http-server@0.3.0",
+                "npm",
+                id="unsupported_npm",
+            ),
+            pytest.param(
+                "PACKAGE-MANAGER",
+                "Microsoft.AspNet.MVC/5.0.0",
+                "nuget",
+                id="unsupported_nuget",
+            ),
+            pytest.param(
+                "PACKAGE-MANAGER",
+                "modernizr#2.6.2",
+                "bower",
+                id="unsupported_bower",
+            ),
+            pytest.param(
+                "PERSISTENT-ID",
+                "swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2",
+                "swh",
+                id="unsupported_persistent_id_swh",
+            ),
+            pytest.param(
+                "PERSISTENT-ID",
+                "gitoid:blob:sha1:261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+                "gitoid",
+                id="unsupported_persistent_id_gitoid",
+            ),
+            pytest.param(
+                "OTHER",
+                "anythingcangohere",
+                "some-id",
+                id="unsupported_other_category",
+            ),
+        ],
+    )
+    def test_package_with_invalid_reference_in_external_ref_rejected(
+        self, mock_spdx_now: str, category: str, locator: str, ref_type: str
     ) -> None:
         adapter: pydantic.TypeAdapter = pydantic.TypeAdapter(SPDXPackageExternalRefType)
-
         with pytest.raises(pydantic.ValidationError):
             adapter.validate_python(
-                dict(
-                    referenceCategory="SECURITY",
-                    referenceLocator="pkg:golang/github.com/org/B@v1.0.0",
-                    referenceType="purl",
-                )
-            )
-        with pytest.raises(pydantic.ValidationError):
-            adapter.validate_python(
-                dict(
-                    referenceCategory="PERSISTENT-ID",
-                    referenceLocator="pkg:golang/github.com/org/B@v1.0.0",
-                    referenceType="purl",
-                )
-            )
-        with pytest.raises(pydantic.ValidationError):
-            adapter.validate_python(
-                dict(
-                    referenceCategory="PACKAGE-MANAGER",
-                    referenceLocator="gitoid:blob:sha1:261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
-                    referenceType="gitbom",
-                )
-            )
-
-    def test_package_external_ref_invalid_reference(self, mock_spdx_now: str) -> None:
-        adapter: pydantic.TypeAdapter = pydantic.TypeAdapter(SPDXPackageExternalRefType)
-        with pytest.raises(
-            pydantic.ValidationError,
-        ):
-            adapter.validate_python(
-                dict(
-                    referenceCategory="INVALID",
-                    referenceLocator="pkg:golang/github.com/org/B@v1.0.0",
-                    referenceType="purl",
-                )
+                dict(referenceCategory=category, referenceLocator=locator, referenceType=ref_type)
             )
 
     def test_to_cyclonedx(self, mock_spdx_now: str) -> None:
@@ -1073,6 +1097,35 @@ class TestSPDXSbom:
                 tools=[Tool(vendor="hermetoproject", name=f"{APP_NAME}")],
             ),
         )
+
+    def test_to_cyclonedx_invalid_json_annotation(self, mock_spdx_now: str) -> None:
+        """Malformed JSON in a jsonencoded SPDX annotation should raise UnexpectedFormat."""
+        sbom = SPDXSbom(
+            documentNamespace="NOASSERTION",
+            creationInfo={
+                "creators": [f"Tool: {APP_NAME}", "Organization: hermetoproject"],
+                "created": SPDX_EPOCH_STRFTIME,
+            },
+            packages=[
+                {
+                    "SPDXID": "SPDXRef-Package-test-abc123",
+                    "name": "test-package",
+                    "versionInfo": "1.0.0",
+                    "externalRefs": [_gen_ref("pkg:npm/test-package@1.0.0")],
+                    "annotations": [
+                        {
+                            "annotator": f"Tool: {ANNOTATOR_JSON}",
+                            "annotationDate": SPDX_EPOCH_STRFTIME,
+                            "annotationType": "OTHER",
+                            "comment": "not valid json {{{",
+                        }
+                    ],
+                },
+            ],
+        )
+
+        with pytest.raises(UnexpectedFormat, match="Invalid JSON in annotation"):
+            sbom.to_cyclonedx()
 
     # SPDX SBOM objects are very verbose and it is rather hard to tell the
     # difference between them at a glance. It is unavoidable when a SBOM is

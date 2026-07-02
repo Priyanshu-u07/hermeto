@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-only
-import logging
 from pathlib import Path
 
 import pytest
 
-from . import utils
+from hermeto.core.errors import ExitError
 
-log = logging.getLogger(__name__)
+from . import utils
 
 
 @pytest.mark.parametrize(
@@ -17,9 +16,6 @@ log = logging.getLogger(__name__)
                 branch="cargo/just-a-crate-dependency",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             id="cargo_just_a_crate_dependency",
         ),
@@ -28,9 +24,6 @@ log = logging.getLogger(__name__)
                 branch="cargo/just-a-git-dependency",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             id="cargo_just_a_git_dependency",
         ),
@@ -39,9 +32,6 @@ log = logging.getLogger(__name__)
                 branch="cargo/mixed-git-crate-dependency",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             id="cargo_mixed_git_crate_dependency",
         ),
@@ -50,9 +40,6 @@ log = logging.getLogger(__name__)
                 branch="cargo/uses-resolver-v3",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             id="cargo_uses_resolver_v3",
         ),
@@ -61,8 +48,7 @@ log = logging.getLogger(__name__)
                 branch="cargo/missing-lockfile",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=2,
+                expected_error=ExitError.ERR_LOCKFILE_NOT_FOUND,
                 expected_output="Cargo.lock not found",
             ),
             id="cargo_missing_lockfile",
@@ -73,9 +59,6 @@ log = logging.getLogger(__name__)
                 packages=({"path": ".", "type": "cargo"},),
                 global_flags=["--mode", "permissive"],
                 check_output=False,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="All dependencies fetched successfully",
             ),
             id="cargo_missing_lockfile_permissive_mode",
         ),
@@ -105,9 +88,6 @@ def test_cargo_packages(
                 branch="cargo/mixed-git-crate-dependency",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=True,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             [],  # No additional commands are run to verify the build
             [],
@@ -118,9 +98,6 @@ def test_cargo_packages(
                 branch="cargo/e2e",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=True,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="All dependencies fetched successfully",
             ),
             ["foo"],
             ["The word foo has 3 letters"],

@@ -245,7 +245,7 @@ class TestPackageInput:
             ),
             pytest.param(
                 {"type": "go-package"},
-                r"Input tag 'go-package' found using 'type' does not match any of the expected tags: 'bundler', 'cargo', 'generic', 'gomod', 'npm', 'pip', 'rpm', 'yarn'",
+                r"Input tag 'go-package' found using 'type' does not match any of the expected tags: 'bundler', 'cargo', 'generic', 'gomod', 'x-maven', 'npm', 'pip', 'pnpm', 'rpm', 'yarn'",
                 id="incorrect_type_tag",
             ),
             pytest.param(
@@ -307,6 +307,11 @@ class TestPackageInput:
                 {"type": "pip", "binary": {"unknown_field": "value"}},
                 r"Extra inputs are not permitted",
                 id="pip_binary_unknown_field",
+            ),
+            pytest.param(
+                {"type": "yarn", "workspaces": []},
+                r"'workspaces' must not be an empty list, omit the field instead",
+                id="yarn_empty_workspaces",
             ),
         ],
     )

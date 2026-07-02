@@ -20,21 +20,36 @@ from hermeto.core.models.sbom import (
     Component,
     ExternalReference,
 )
+from hermeto.core.package_managers.javascript.pnpm.resolver import JSR_REGISTRY_URL
 from tests.nexusserver import DEFAULT_NEXUS_HOST, DEFAULT_NEXUS_TLS_PORT
 
 _NEXUS_BASE_URL = f"https://{DEFAULT_NEXUS_HOST}:{DEFAULT_NEXUS_TLS_PORT}"
 
 _PROXY_URL_ENV_PATTERN = re.compile(rf"^{APP_NAME}_([A-Z0-9_]+)__PROXY_URL$", re.IGNORECASE)
+
+_DEFAULT_PROXY_LOGIN = "hermeto-user"
+_DEFAULT_PROXY_PASSWORD = "hermeto-pass"  # noqa: S105
+
 DEFAULT_LOCAL_NEXUS_PROXY_ENV: dict[str, str] = {
     f"{APP_NAME}_NPM__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/npm-proxy/",
-    f"{APP_NAME}_NPM__PROXY_LOGIN": "hermeto-user",
-    f"{APP_NAME}_NPM__PROXY_PASSWORD": "hermeto-pass",
+    f"{APP_NAME}_NPM__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
+    f"{APP_NAME}_NPM__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
+    f"{APP_NAME}_PIP__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/pypi-proxy/simple/",
+    f"{APP_NAME}_PIP__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
+    f"{APP_NAME}_PIP__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
+    f"{APP_NAME}_PNPM__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/npm-proxy/",
+    f"{APP_NAME}_PNPM__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
+    f"{APP_NAME}_PNPM__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
     f"{APP_NAME}_YARN__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/npm-proxy/",
-    f"{APP_NAME}_YARN__PROXY_LOGIN": "hermeto-user",
-    f"{APP_NAME}_YARN__PROXY_PASSWORD": "hermeto-pass",
+    f"{APP_NAME}_YARN__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
+    f"{APP_NAME}_YARN__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
+    f"{APP_NAME}_GOMOD__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/go-proxy/",
+    f"{APP_NAME}_GOMOD__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
+    f"{APP_NAME}_GOMOD__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
 }
 
-_DIRECT_SOURCE_QUALIFIERS = frozenset({"vcs_url", "download_url", "repository_url"})
+_DIRECT_SOURCE_QUALIFIERS = frozenset({"vcs_url", "download_url"})
+_UNSUPPORTED_REGISTRY_URLS = frozenset({JSR_REGISTRY_URL})
 
 
 def is_local_nexus_enabled() -> bool:
@@ -72,8 +87,8 @@ def _get_bom_ref_backends(sbom: dict[str, Any]) -> dict[str, set[str]]:
         if not annotation.text.startswith(BACKEND_ANNOTATION_PREFIX):
             continue
 
-        # Can be backend:foo or backend:experimental:foo
-        if not (backend_name := annotation.text.split(":")[-1]):
+        # Can be backend:foo or backend:experimental:x-foo
+        if not (backend_name := annotation.text.split(":")[-1].removeprefix("x-")):
             continue
 
         for subject in annotation.subjects:
@@ -82,17 +97,33 @@ def _get_bom_ref_backends(sbom: dict[str, Any]) -> dict[str, set[str]]:
     return dict(backends_by_bom_ref)
 
 
-def _is_registry_component(component: Component) -> bool:
-    """Return True if the component was fetched from a registry (not bundled or direct-source)."""
+def _is_proxyable_component(component: Component) -> bool:
+    """Return True if the component is expected to have a proxy URL."""
     is_bundled = any(
         p.name == PropertyEnum.PROP_CDX_NPM_PACKAGE_BUNDLED and p.value == "true"
         for p in component.properties
     )
-    if is_bundled:
+
+    # This tuple will contain conditions to skip a Component for all package managers
+    # which use artifact registry proxies.
+    is_local = (
+        (  # local traits for go mod:
+            component.purl.startswith("pkg:golang")
+            and (component.version is None or "vcs_url" in component.purl)
+        ),
+    )
+
+    if is_bundled or any(is_local):
         return False
 
     purl = PackageURL.from_string(component.purl)
-    return not (purl.qualifiers.keys() & _DIRECT_SOURCE_QUALIFIERS)
+    if purl.qualifiers.keys() & _DIRECT_SOURCE_QUALIFIERS:
+        return False
+
+    if purl.qualifiers.get("repository_url") in _UNSUPPORTED_REGISTRY_URLS:
+        return False
+
+    return True
 
 
 def _partition_proxy_external_refs(
@@ -120,7 +151,7 @@ def _expected_proxy_urls_for_component(
     component_backends = bom_ref_backends.get(component.bom_ref, set())
     proxy_enabled_backends = component_backends & backend_proxy_urls.keys()
 
-    if not proxy_enabled_backends or not _is_registry_component(component):
+    if not proxy_enabled_backends or not _is_proxyable_component(component):
         return set()
 
     return set(backend_proxy_urls[backend] for backend in proxy_enabled_backends)

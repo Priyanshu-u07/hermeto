@@ -5,12 +5,13 @@ import logging
 import shutil
 from collections.abc import Iterable
 from pathlib import Path
-from textwrap import dedent
-from typing import Any
+
+import tomlkit
 
 from hermeto.core.models.input import CargoPackageInput, Request
 from hermeto.core.models.output import EnvironmentVariable, ProjectFile, RequestOutput
 from hermeto.core.package_managers.cargo import fetch_cargo_source
+from hermeto.core.package_managers.pip.packages import PipPackage
 from hermeto.core.package_managers.pip.project_files import PyProjectTOML, SetupCFG, SetupPY
 from hermeto.core.package_managers.pip.requirements import WHEEL_FILE_EXTENSION
 from hermeto.core.rooted_path import RootedPath
@@ -66,25 +67,24 @@ def _get_rust_root_dir(source_dir: Path) -> Path | None:
     return None
 
 
-def filter_packages_with_rust_code(packages: list[dict[str, Any]]) -> list[CargoPackageInput]:
+def filter_packages_with_rust_code(packages: list[PipPackage]) -> list[CargoPackageInput]:
     """Filter packages that contain Rust code from a list of pip packages."""
     packages_containing_rust_code = []
 
     for p in packages:
         # File name and package name may differ e.g. when there is a hyphen in
         # package name it might be replaced by an underscore in a file name.
-        package_path: Path | None = p.get("path")
-        if package_path is None or package_path.suffix == WHEEL_FILE_EXTENSION:
+        if p.path.suffix == WHEEL_FILE_EXTENSION:
             continue
 
-        filename = Path(package_path.name)
+        filename = Path(p.path.name)
         extract_filter = "data" if filename.suffix != ".zip" else None
         while filename.suffix in (".zip", ".tar", ".gz", ".tgz"):
             filename = filename.with_suffix("")
 
-        pip_deps_dir = package_path.parent
+        pip_deps_dir = p.path.parent
         extract_dir = pip_deps_dir / filename
-        shutil.unpack_archive(package_path, extract_dir=extract_dir, filter=extract_filter)  # type: ignore[arg-type]
+        shutil.unpack_archive(p.path, extract_dir=extract_dir, filter=extract_filter)  # type: ignore[arg-type]
 
         # The unpacked URL/VCS package may have an arbitrary directory name that we cannot control.
         # Therefore, it is inside a predictable directory derived from the package name.
@@ -115,20 +115,23 @@ def filter_packages_with_rust_code(packages: list[dict[str, Any]]) -> list[Cargo
     return packages_containing_rust_code
 
 
-def _config_data() -> str:
-    return dedent(
-        """
-        [source.crates-io]
-        replace-with = "local"
-
-        [source.local]
-        directory = "${output_dir}/deps/cargo"
-        """
-    )
-
-
 def _config_path(request: Request) -> Path:
     return request.output_dir.join_within_root(".cargo/config.toml").path
+
+
+def _merge_cargo_config_files(project_files: list[ProjectFile]) -> str:
+    """
+    Merge cargo config project files into a single TOML template.
+
+    Each cargo config file may contain git dependencies, so the final template must be dynamically
+    generated from all Rust extensions in the Python project. Currently, the cargo backend only
+    produces config files (no other project files).
+    """
+    all_sources = {}
+    for pf in project_files:
+        all_sources.update(tomlkit.parse(pf.template).get("source", {}))
+
+    return tomlkit.dumps({"source": all_sources})
 
 
 def find_and_fetch_rust_dependencies(
@@ -155,12 +158,19 @@ def find_and_fetch_rust_dependencies(
         )
         result = fetch_cargo_source(cargo_request)
 
+        template = _merge_cargo_config_files(result.build_config.project_files)
         # A config pointing to deps/cargo directory and an environment variable
         # poiting to the config are necessary for pip to be able to build the extension.
         ev = [EnvironmentVariable(name="CARGO_HOME", value="${output_dir}/.cargo")]
-        pf = [ProjectFile(abspath=_config_path(request), template=_config_data())]
+        pf = [ProjectFile(abspath=_config_path(request), template=template)]
 
         remove_extracted(packages_containing_rust_code)
-        return result + RequestOutput.from_obj_list([], ev, pf)
+        return RequestOutput.from_obj_list(
+            components=result.components,
+            environment_variables=ev + result.build_config.environment_variables,
+            project_files=pf,
+            options=result.build_config.options,
+            annotations=result.annotations,
+        )
 
-    return RequestOutput.from_obj_list([], [], [])
+    return RequestOutput.empty()

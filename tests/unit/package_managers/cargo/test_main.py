@@ -28,52 +28,52 @@ def write_cargo_lock(rooted_path: RootedPath, content: str) -> None:
     (rooted_path.path / "Cargo.lock").write_text(content)
 
 
-def test_standard_package_with_name_and_version(rooted_tmp_path: RootedPath) -> None:
-    write_cargo_toml(
-        rooted_tmp_path,
-        """
-        [package]
-        name = "my-project"
-        version = "1.2.3"
-        """,
-    )
+@pytest.mark.parametrize(
+    "cargo_toml, expected_name, expected_version",
+    [
+        pytest.param(
+            """
+            [package]
+            name = "my-project"
+            version = "1.2.3"
+            """,
+            "my-project",
+            "1.2.3",
+            id="standard_package",
+        ),
+        pytest.param(
+            """
+            [workspace]
+            members = ["a", "b", "c"]
 
+            [workspace.package]
+            version = "1.2.3"
+            """,
+            None,
+            "1.2.3",
+            id="virtual_workspace_with_version",
+        ),
+        pytest.param(
+            """
+            [workspace]
+            members = ["a", "b", "c"]
+            """,
+            None,
+            None,
+            id="virtual_workspace_without_version",
+        ),
+    ],
+)
+def test_resolve_main_package(
+    rooted_tmp_path: RootedPath,
+    cargo_toml: str,
+    expected_name: str | None,
+    expected_version: str | None,
+) -> None:
+    write_cargo_toml(rooted_tmp_path, cargo_toml)
     name, version = _resolve_main_package(rooted_tmp_path)
-    assert name == "my-project"
-    assert version == "1.2.3"
-
-
-def test_virtual_workspace_with_workspace_package_version(rooted_tmp_path: RootedPath) -> None:
-    write_cargo_toml(
-        rooted_tmp_path,
-        """
-        [workspace]
-        members = ["a", "b", "c"]
-
-        [workspace.package]
-        version = "1.2.3"
-        """,
-    )
-
-    expected_name = rooted_tmp_path.path.name
-    name, version = _resolve_main_package(rooted_tmp_path)
-    assert name == expected_name
-    assert version == "1.2.3"
-
-
-def test_virtual_workspace_without_workspace_version(rooted_tmp_path: RootedPath) -> None:
-    write_cargo_toml(
-        rooted_tmp_path,
-        """
-        [workspace]
-        members = ["a", "b", "c"]
-        """,
-    )
-
-    expected_name = rooted_tmp_path.path.name
-    name, version = _resolve_main_package(rooted_tmp_path)
-    assert name == expected_name
-    assert version is None
+    assert name == (expected_name or rooted_tmp_path.path.name)
+    assert version == expected_version
 
 
 @pytest.mark.parametrize(
@@ -327,7 +327,7 @@ def test_generate_sbom_components_permissive_no_git_vcs_url_is_none(
 ) -> None:
     """PERMISSIVE mode + NotAGitRepo: no exception raised and vcs_url absent from PURL."""
     mock_get_config.return_value.mode = Mode.PERMISSIVE
-    mock_get_repo_id.side_effect = NotAGitRepo("not a git repo", solution=None)
+    mock_get_repo_id.side_effect = NotAGitRepo("not a git repo")
 
     write_cargo_toml(rooted_tmp_path, _MINIMAL_CARGO_TOML)
     write_cargo_lock(rooted_tmp_path, _MINIMAL_CARGO_LOCK)
@@ -376,7 +376,7 @@ def test_generate_sbom_components_strict_source_inside_output_no_git_no_raise(
 ) -> None:
     """STRICT mode + source_dir inside output_dir + NotAGitRepo: short-circuit suppresses error."""
     mock_get_config.return_value.mode = Mode.STRICT
-    mock_get_repo_id.side_effect = NotAGitRepo("not a git repo", solution=None)
+    mock_get_repo_id.side_effect = NotAGitRepo("not a git repo")
 
     # Place cargo files inside a subdirectory of the output dir to trigger the short-circuit.
     output_dir = rooted_tmp_path.path / "output"
@@ -410,7 +410,7 @@ def test_generate_sbom_components_strict_mode_raises_without_git_repo(
 ) -> None:
     """STRICT mode + NotAGitRepo + source NOT inside output_dir: exception propagates."""
     mock_get_config.return_value.mode = Mode.STRICT
-    mock_get_repo_id.side_effect = NotAGitRepo("not a git repo", solution=None)
+    mock_get_repo_id.side_effect = NotAGitRepo("not a git repo")
 
     write_cargo_toml(rooted_tmp_path, _MINIMAL_CARGO_TOML)
     write_cargo_lock(rooted_tmp_path, _MINIMAL_CARGO_LOCK)

@@ -108,9 +108,12 @@ PackageManagerType = Literal[
     "gomod",
     "npm",
     "pip",
+    "pnpm",
     "rpm",
     "yarn",
-    # Add experimental package managers here with x- prefix, e.g. "x-foo"
+    # Add experimental package managers (or package managers whose implementation is in progress)
+    # here with an x- prefix (e.g. "x-foo"):
+    "x-maven",
 ]
 
 
@@ -292,6 +295,12 @@ class GomodPackageInput(_PackageInputBase):
     type: Literal["gomod"]
 
 
+class MavenPackageInput(_PackageInputBase):
+    """Accepted input for a maven package."""
+
+    type: Literal["x-maven"]
+
+
 class NpmPackageInput(_PackageInputBase):
     """Accepted input for a npm package."""
 
@@ -328,6 +337,12 @@ class PipPackageInput(_PackageInputBase):
         """Handle backward compatibility for allow_binary field."""
         _handle_legacy_allow_binary(self, PipBinaryFilters)
         return self
+
+
+class PnpmPackageInput(_PackageInputBase):
+    """Accepted input for a pnpm package."""
+
+    type: Literal["pnpm"]
 
 
 class ExtraOptions(pydantic.BaseModel, extra="forbid"):
@@ -396,6 +411,14 @@ class YarnPackageInput(_PackageInputBase):
     """Accepted input for a yarn package."""
 
     type: Literal["yarn"]
+    workspaces: list[str] | None = None
+
+    @pydantic.field_validator("workspaces")
+    @classmethod
+    def _workspaces_not_empty(cls, workspaces: list[str] | None) -> list[str] | None:
+        if workspaces is not None and len(workspaces) == 0:
+            raise ValueError("'workspaces' must not be an empty list, omit the field instead")
+        return workspaces
 
 
 PackageInput = Annotated[
@@ -403,8 +426,10 @@ PackageInput = Annotated[
     | CargoPackageInput
     | GenericPackageInput
     | GomodPackageInput
+    | MavenPackageInput
     | NpmPackageInput
     | PipPackageInput
+    | PnpmPackageInput
     | RpmPackageInput
     | YarnPackageInput,
     # https://pydantic-docs.helpmanual.io/usage/types/#discriminated-unions-aka-tagged-unions
@@ -499,6 +524,11 @@ class Request(pydantic.BaseModel):
         return self._packages_by_type(GomodPackageInput)
 
     @property
+    def maven_packages(self) -> list[MavenPackageInput]:
+        """Get the maven packages specified for this request."""
+        return self._packages_by_type(MavenPackageInput)
+
+    @property
     def npm_packages(self) -> list[NpmPackageInput]:
         """Get the npm packages specified for this request."""
         return self._packages_by_type(NpmPackageInput)
@@ -507,6 +537,11 @@ class Request(pydantic.BaseModel):
     def pip_packages(self) -> list[PipPackageInput]:
         """Get the pip packages specified for this request."""
         return self._packages_by_type(PipPackageInput)
+
+    @property
+    def pnpm_packages(self) -> list[PnpmPackageInput]:
+        """Get the pnpm packages specified for this request."""
+        return self._packages_by_type(PnpmPackageInput)
 
     @property
     def rpm_packages(self) -> list[RpmPackageInput]:

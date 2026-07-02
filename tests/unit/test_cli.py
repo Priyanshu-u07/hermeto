@@ -20,6 +20,7 @@ import yaml
 import hermeto.core.config as config_file
 from hermeto import APP_NAME
 from hermeto.core.constants import Mode
+from hermeto.core.errors import ExitError
 from hermeto.core.models.input import Request
 from hermeto.core.models.output import (
     BuildConfig,
@@ -68,10 +69,12 @@ def invoke_expecting_sucess(app: typer.Typer, args: list[str]) -> typer.testing.
     return result
 
 
-def invoke_expecting_invalid_usage(app: typer.Typer, args: list[str]) -> typer.testing.Result:
+def invoke_expecting_invalid_usage(
+    app: typer.Typer, args: list[str], expected_error: ExitError
+) -> typer.testing.Result:
     result = runner.invoke(app, args)
-    assert result.exit_code == 2, (
-        f"expected exit_code=2, got exit_code={result.exit_code}\ncommand output:\n{result.output}"
+    assert result.exit_code == expected_error.value, (
+        f"expected exit_code={expected_error.value}, got exit_code={result.exit_code}\ncommand output:\n{result.output}"
     )
     return result
 
@@ -148,25 +151,28 @@ class TestTopLevelOpts:
             invoke_expecting_sucess(app, args)
 
     @pytest.mark.parametrize(
-        "file_create, file, file_text, error_expectation",
+        "file_create, file, file_text, error_expectation, expected_error",
         [
             (
                 True,
                 "config.yaml",
                 "goproxy_url",
                 "Error: InvalidInput: 1 validation error in Hermeto configuration:\n: Input should be a valid dictionary or instance of Config",
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 True,
                 "config.yaml",
                 "non_existing_option: True",
                 "Error: InvalidInput: 1 validation error in Hermeto configuration:\nnon_existing_option: Extra inputs are not permitted\n",
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 False,
                 "config.yaml",
                 "",
                 "Invalid value for '--config-file': File 'config.yaml' does not exist.",
+                ExitError.ERR_USAGE,
             ),
         ],
     )
@@ -176,6 +182,7 @@ class TestTopLevelOpts:
         file: str,
         file_text: str,
         error_expectation: str,
+        expected_error: ExitError,
         tmp_cwd: Path,
     ) -> None:
         if file_create:
@@ -184,7 +191,7 @@ class TestTopLevelOpts:
 
         args = ["--config-file", file, "fetch-deps", "gomod"]
         with mock_fetch_deps():
-            result = invoke_expecting_invalid_usage(app, args)
+            result = invoke_expecting_invalid_usage(app, args, expected_error)
             assert error_expectation in result.output
 
     @pytest.mark.parametrize(
@@ -220,7 +227,7 @@ class TestTopLevelOpts:
     def test_mode_option_is_not_valid(self, mode: str) -> None:
         args = ["--mode", mode, "fetch-deps", "gomod"]
         with mock_fetch_deps():
-            result = invoke_expecting_invalid_usage(app, args)
+            result = invoke_expecting_invalid_usage(app, args, ExitError.ERR_USAGE)
             assert f"Invalid value for '--mode': '{mode}' is not one of" in result.output
 
     @pytest.mark.parametrize(
@@ -248,7 +255,7 @@ class TestTopLevelOpts:
 
     def test_unknown_loglevel(self, tmp_cwd: Path) -> None:
         args = ["--log-level=unknown", "fetch-deps", "gomod"]
-        result = invoke_expecting_invalid_usage(app, args)
+        result = invoke_expecting_invalid_usage(app, args, ExitError.ERR_USAGE)
         assert "Invalid value for '--log-level': 'unknown' is not one of" in result.output
 
 
@@ -319,11 +326,13 @@ class TestFetchDeps:
     def test_invalid_paths(self, path_args: list[str], expect_error: str, tmp_cwd: Path) -> None:
         tmp_cwd.joinpath("not-a-directory").touch()
 
-        result = invoke_expecting_invalid_usage(app, ["fetch-deps", *path_args])
+        result = invoke_expecting_invalid_usage(
+            app, ["fetch-deps", *path_args], ExitError.ERR_USAGE
+        )
         assert expect_error in result.output
 
     def test_no_packages(self) -> None:
-        result = invoke_expecting_invalid_usage(app, ["fetch-deps"])
+        result = invoke_expecting_invalid_usage(app, ["fetch-deps"], ExitError.ERR_USAGE)
         assert "Missing argument 'PKG'" in result.output
 
     @pytest.mark.parametrize(
@@ -467,16 +476,18 @@ class TestFetchDeps:
             invoke_expecting_sucess(app, ["fetch-deps", str(input_file)])
 
     @pytest.mark.parametrize(
-        "package_arg, expect_error_lines",
+        "package_arg, expect_error_lines, expected_error",
         [
             # Invalid JSON
             (
                 "{notjson}",
                 ["'PKG': Looks like JSON but is not valid JSON: '{notjson}'"],
+                ExitError.ERR_USAGE,
             ),
             (
                 "[notjson]",
                 ["'PKG': Looks like JSON but is not valid JSON: '[notjson]'"],
+                ExitError.ERR_USAGE,
             ),
             # Invalid package type
             (
@@ -484,24 +495,27 @@ class TestFetchDeps:
                 [
                     "Error: InvalidInput: 1 validation error for user input",
                     "packages -> 0",
-                    "Requested backend type 'idk' doesn't match expected ones: 'bundler', 'cargo', 'generic', 'gomod', 'npm', 'pip', 'rpm', 'yarn'",
+                    "Requested backend type 'idk' doesn't match expected ones: 'bundler', 'cargo', 'generic', 'gomod', 'npm', 'pip', 'pnpm', 'rpm', 'x-maven', 'yarn'",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '[{"type": "idk"}]',
                 [
                     "Error: InvalidInput: 1 validation error for user input",
                     "packages -> 0",
-                    "Requested backend type 'idk' doesn't match expected ones: 'bundler', 'cargo', 'generic', 'gomod', 'npm', 'pip', 'rpm', 'yarn'",
+                    "Requested backend type 'idk' doesn't match expected ones: 'bundler', 'cargo', 'generic', 'gomod', 'npm', 'pip', 'pnpm', 'rpm', 'x-maven', 'yarn'",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"packages": [{"type": "idk"}]}',
                 [
                     "Error: InvalidInput: 1 validation error for user input",
                     "packages -> 0",
-                    "Requested backend type 'idk' doesn't match expected ones: 'bundler', 'cargo', 'generic', 'gomod', 'npm', 'pip', 'rpm', 'yarn'",
+                    "Requested backend type 'idk' doesn't match expected ones: 'bundler', 'cargo', 'generic', 'gomod', 'npm', 'pip', 'pnpm', 'rpm', 'x-maven', 'yarn'",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             # Missing package type
             (
@@ -511,6 +525,7 @@ class TestFetchDeps:
                     "packages -> 0",
                     "Unable to extract tag using discriminator 'type'",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '[{"type": "gomod"}, {}]',
@@ -519,6 +534,7 @@ class TestFetchDeps:
                     "packages -> 1",
                     "Unable to extract tag using discriminator 'type'",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"packages": [{}]}',
@@ -527,6 +543,7 @@ class TestFetchDeps:
                     "packages -> 0",
                     "Unable to extract tag using discriminator 'type'",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             # Invalid path
             (
@@ -536,6 +553,7 @@ class TestFetchDeps:
                     "packages -> 0 -> gomod -> path",
                     "Value error, path must be relative: /absolute",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"type": "gomod", "path": "weird/../subpath"}',
@@ -544,6 +562,7 @@ class TestFetchDeps:
                     "packages -> 0 -> gomod -> path",
                     "Value error, path contains ..: weird/../subpath",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"type": "gomod", "path": "suspicious-symlink"}',
@@ -552,6 +571,7 @@ class TestFetchDeps:
                     "packages",
                     "Value error, package path (a symlink?) leads outside source directory: suspicious-symlink",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"type": "gomod", "path": "no-such-dir"}',
@@ -560,6 +580,7 @@ class TestFetchDeps:
                     "packages",
                     "Value error, package path does not exist (or is not a directory): no-such-dir",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             # Extra fields
             (
@@ -569,6 +590,7 @@ class TestFetchDeps:
                     "packages -> 0 -> gomod -> what",
                     "Extra inputs are not permitted",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             # Invalid format using 'packages' key
             (
@@ -578,6 +600,7 @@ class TestFetchDeps:
                     "packages",
                     "Input should be a valid list",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"packages": {"type":"gomod"}}',
@@ -586,6 +609,7 @@ class TestFetchDeps:
                     "packages",
                     "Input should be a valid list",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"packages": ["gomod"]}',
@@ -594,6 +618,7 @@ class TestFetchDeps:
                     "packages -> 0",
                     "Input should be a valid dictionary or object to extract fields from",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 '{"packages": [{"type": "gomod"}], "what": "dunno"}',
@@ -602,15 +627,20 @@ class TestFetchDeps:
                     "what",
                     "Extra inputs are not permitted",
                 ],
+                ExitError.ERR_INVALID_INPUT,
             ),
         ],
     )
     def test_invalid_packages(
-        self, package_arg: str, expect_error_lines: list[str], tmp_cwd: Path
+        self,
+        package_arg: str,
+        expect_error_lines: list[str],
+        expected_error: ExitError,
+        tmp_cwd: Path,
     ) -> None:
         tmp_cwd.joinpath("suspicious-symlink").symlink_to("..")
 
-        result = invoke_expecting_invalid_usage(app, ["fetch-deps", package_arg])
+        result = invoke_expecting_invalid_usage(app, ["fetch-deps", package_arg], expected_error)
 
         for pattern in expect_error_lines:
             assert_pattern_in_output(pattern, result.output)
@@ -619,7 +649,9 @@ class TestFetchDeps:
         input_file = tmp_cwd.joinpath("input.json")
         input_file.write_text("}abc{")
 
-        result = invoke_expecting_invalid_usage(app, ["fetch-deps", str(input_file)])
+        result = invoke_expecting_invalid_usage(
+            app, ["fetch-deps", str(input_file)], ExitError.ERR_USAGE
+        )
         assert_pattern_in_output(
             "'PKG': Looks like JSON file but is not valid JSON file", result.output
         )
@@ -690,25 +722,30 @@ class TestFetchDeps:
             invoke_expecting_sucess(app, ["fetch-deps", *cli_args])
 
     @pytest.mark.parametrize(
-        "cli_args, expect_error",
+        "cli_args, expect_error, expected_error",
         [
-            (["gomod", "--no-such-flag"], "No such option: --no-such-flag"),
+            (["gomod", "--no-such-flag"], "No such option: --no-such-flag", ExitError.ERR_USAGE),
             (
                 ['{"packages": [{"type": "gomod"}], "flags": "not-a-list"}'],
                 "Input should be a valid list",
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 ['{"packages": [{"type": "gomod"}], "flags": {"dict": "no-such-flag"}}'],
                 "Input should be a valid list",
+                ExitError.ERR_INVALID_INPUT,
             ),
             (
                 ['{"packages": [{"type": "gomod"}], "flags": ["no-such-flag"]}'],
                 "Input should be 'cgo-disable', 'dev-package-managers', 'force-gomod-tidy', 'gomod-vendor' or 'gomod-vendor-check'",
+                ExitError.ERR_INVALID_INPUT,
             ),
         ],
     )
-    def test_invalid_flags(self, cli_args: list[str], expect_error: str) -> None:
-        result = invoke_expecting_invalid_usage(app, ["fetch-deps", *cli_args])
+    def test_invalid_flags(
+        self, cli_args: list[str], expect_error: str, expected_error: ExitError
+    ) -> None:
+        result = invoke_expecting_invalid_usage(app, ["fetch-deps", *cli_args], expected_error)
         assert_pattern_in_output(expect_error, result.output)
 
     @pytest.mark.parametrize(
@@ -808,7 +845,7 @@ class TestFetchDeps:
 
 def env_file_as_json(for_output_dir: Path) -> str:
     gocache = f'{{"name": "GOCACHE", "value": "{for_output_dir}/deps/gomod"}}'
-    gosumdb = '{"name": "GOSUMDB", "value": "sum.golang.org"}'
+    gosumdb = '{"name": "GOSUMDB", "value": "off"}'
     return f"[{gocache}, {gosumdb}]\n"
 
 
@@ -816,7 +853,7 @@ def env_file_as_env(for_output_dir: Path) -> str:
     return dedent(
         f"""
         export GOCACHE={for_output_dir}/deps/gomod
-        export GOSUMDB=sum.golang.org
+        export GOSUMDB=off
         """
     ).lstrip()
 
@@ -824,7 +861,7 @@ def env_file_as_env(for_output_dir: Path) -> str:
 class TestGenerateEnv:
     ENV_VARS = [
         {"name": "GOCACHE", "value": "${output_dir}/deps/gomod"},
-        {"name": "GOSUMDB", "value": "sum.golang.org"},
+        {"name": "GOSUMDB", "value": "off"},
     ]
 
     @pytest.fixture
@@ -905,11 +942,15 @@ class TestGenerateEnv:
 
     def test_invalid_format(self) -> None:
         # Note: .sh is a recognized suffix, but the --format option accepts only 'json' and 'env'
-        result = invoke_expecting_invalid_usage(app, ["generate-env", ".", "-f", "sh"])
+        result = invoke_expecting_invalid_usage(
+            app, ["generate-env", ".", "-f", "sh"], ExitError.ERR_USAGE
+        )
         assert "Invalid value for '-f' / '--format': 'sh' is not one of" in result.output
 
     def test_unsupported_suffix(self, caplog: pytest.LogCaptureFixture) -> None:
-        result = invoke_expecting_invalid_usage(app, ["generate-env", ".", "-o", "env.yaml"])
+        result = invoke_expecting_invalid_usage(
+            app, ["generate-env", ".", "-o", "env.yaml"], ExitError.ERR_UNSUPPORTED_FEATURE
+        )
 
         msg = "Cannot determine envfile format, unsupported suffix: yaml"
         assert msg in result.output
@@ -1007,59 +1048,50 @@ class TestMergeSboms:
     #             | two valid file names        |
     #             | three valid file names      |
     @pytest.mark.parametrize(
-        "sbom_files_to_merge, pattern",
+        "sbom_files_to_merge, pattern, expected_error",
         [
-            ([], "Missing argument"),
-            (["./tests/unit/data/sboms/hermeto.bom.json"], "Need at least two"),
-            (
+            pytest.param([], "Missing argument", ExitError.ERR_USAGE, id="no_files"),
+            pytest.param(
+                ["./tests/unit/data/sboms/hermeto.bom.json"],
+                "Need at least two",
+                ExitError.ERR_INVALID_INPUT,
+                id="single_file",
+            ),
+            pytest.param(
                 [
                     "./tests/unit/data/sboms/hermeto.bom.json",
                     "./tests/unit/data/sboms/hermeto.bom.json",
                 ],
                 "Need at least two",
+                ExitError.ERR_INVALID_INPUT,
+                id="same_file_twice",
             ),
-        ],
-    )
-    def test_a_user_sees_error_when_they_dont_provide_enough_unique_sboms_for_a_merge(
-        self,
-        sbom_files_to_merge: list[str],
-        pattern: str,
-    ) -> None:
-        result = invoke_expecting_invalid_usage(app, ["merge-sboms", *sbom_files_to_merge])
-        assert pattern in result.output
-
-    @pytest.mark.parametrize(
-        "sbom_files_to_merge, pattern",
-        [
-            (["./tests/unit/data/sboms/hermeto.bom.json", "./README.md"], "does not look like"),
-        ],
-    )
-    def test_a_user_sees_error_when_they_provide_a_non_json_file_for_a_merge(
-        self,
-        sbom_files_to_merge: list[str],
-        pattern: str,
-    ) -> None:
-        result = invoke_expecting_invalid_usage(app, ["merge-sboms", *sbom_files_to_merge])
-        assert pattern in result.output
-
-    @pytest.mark.parametrize(
-        "sbom_files_to_merge, pattern",
-        [
-            (
+            pytest.param(
+                ["./tests/unit/data/sboms/hermeto.bom.json", "./README.md"],
+                "does not look like",
+                ExitError.ERR_UNEXPECTED_FORMAT,
+                id="non_json_file",
+            ),
+            pytest.param(
                 [
                     "./tests/unit/data/sboms/hermeto.bom.json",
                     "./tests/unit/data/sboms/syft.bom.json",
                 ],
                 f"a valid {APP_NAME} SBOM",
+                ExitError.ERR_UNEXPECTED_FORMAT,
+                id="non_hermeto_sbom",
             ),
         ],
     )
-    def test_a_user_sees_error_when_they_provide_a_non_hermeto_sbom_for_a_merge(
+    def test_merge_sboms_error(
         self,
         sbom_files_to_merge: list[str],
         pattern: str,
+        expected_error: ExitError,
     ) -> None:
-        result = invoke_expecting_invalid_usage(app, ["merge-sboms", *sbom_files_to_merge])
+        result = invoke_expecting_invalid_usage(
+            app, ["merge-sboms", *sbom_files_to_merge], expected_error
+        )
         assert pattern in result.output
 
     @pytest.mark.parametrize(
@@ -1084,13 +1116,14 @@ class TestMergeSboms:
         invoke_expecting_sucess(app, ["merge-sboms", *sbom_files_to_merge])
 
     @pytest.mark.parametrize(
-        "sbom_files_to_merge",
+        "sbom_files_to_merge, extra_args",
         [
             pytest.param(
                 [
                     "./tests/unit/data/sboms/hermeto.bom.json",
                     "./tests/unit/data/sboms/hermeto_gomod.bom.json",
                 ],
+                [],
                 id="merge_our_own_cyclonedx",
             ),
             pytest.param(
@@ -1099,7 +1132,24 @@ class TestMergeSboms:
                     "./tests/unit/data/sboms/hermeto_gomod.bom.json",
                     "./tests/unit/data/sboms/hermeto_gomod_nodeps.bom.json",
                 ],
+                [],
                 id="merge_our_own_cyclonedx_more",
+            ),
+            pytest.param(
+                [
+                    "./tests/unit/data/sboms/hermeto.bom.spdx.json",
+                    "./tests/unit/data/sboms/something.simple0.100.0.spdx.pretty.json",
+                ],
+                ["--sbom-output-type", "spdx"],
+                id="spdx_format",
+            ),
+            pytest.param(
+                [
+                    "./tests/unit/data/sboms/hermeto.bom.json",
+                    "./tests/unit/data/sboms/syft.bom.spdx.json",
+                ],
+                ["--sbom-output-type", "spdx"],
+                id="merge_mixed_format",
             ),
         ],
     )
@@ -1107,55 +1157,12 @@ class TestMergeSboms:
         self,
         request: pytest.FixtureRequest,
         sbom_files_to_merge: list[str],
-    ) -> None:
-        prefix = f"{APP_NAME}-{Path(__file__).stem}-{request.node.callspec.id}-"
-        with tempfile.NamedTemporaryFile(prefix=prefix) as fp:
-            invoke_expecting_sucess(app, ["merge-sboms", "-o", fp.name, *sbom_files_to_merge])
-            assert Path(fp.name).lstat().st_size > 0, "SBOM failed to be written to output file!"
-
-    @pytest.mark.parametrize(
-        "sbom_files_to_merge",
-        [
-            [
-                "./tests/unit/data/sboms/hermeto.bom.spdx.json",
-                "./tests/unit/data/sboms/something.simple0.100.0.spdx.pretty.json",
-            ],
-        ],
-    )
-    def test_a_user_can_successfully_save_sboms_merge_results_to_a_file_in_spdx_format(
-        self,
-        request: pytest.FixtureRequest,
-        sbom_files_to_merge: list[str],
+        extra_args: list[str],
     ) -> None:
         prefix = f"{APP_NAME}-{Path(__file__).stem}-{request.node.callspec.id}-"
         with tempfile.NamedTemporaryFile(prefix=prefix) as fp:
             invoke_expecting_sucess(
                 app,
-                ["merge-sboms", "-o", fp.name, "--sbom-output-type", "spdx", *sbom_files_to_merge],
-            )
-            assert Path(fp.name).lstat().st_size > 0, "SBOM failed to be written to output file!"
-
-    @pytest.mark.parametrize(
-        "sbom_files_to_merge",
-        [
-            pytest.param(
-                [
-                    "./tests/unit/data/sboms/hermeto.bom.json",
-                    "./tests/unit/data/sboms/syft.bom.spdx.json",
-                ],
-                id="merge_mixed_format",
-            ),
-        ],
-    )
-    def test_a_user_can_successfully_save_mixed_sboms_merge_results_to_a_file_in_spdx_format(
-        self,
-        request: pytest.FixtureRequest,
-        sbom_files_to_merge: list[str],
-    ) -> None:
-        prefix = f"{APP_NAME}-{Path(__file__).stem}-{request.node.callspec.id}-"
-        with tempfile.NamedTemporaryFile(prefix=prefix) as fp:
-            invoke_expecting_sucess(
-                app,
-                ["merge-sboms", "-o", fp.name, "--sbom-output-type", "spdx", *sbom_files_to_merge],
+                ["merge-sboms", "-o", fp.name, *extra_args, *sbom_files_to_merge],
             )
             assert Path(fp.name).lstat().st_size > 0, "SBOM failed to be written to output file!"

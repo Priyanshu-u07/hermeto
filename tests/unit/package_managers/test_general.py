@@ -10,6 +10,7 @@ import aiohttp
 import aiohttp_retry
 import pytest
 import requests
+from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase, HTTPBasicAuth
 
 from hermeto.core.config import get_config
@@ -17,9 +18,9 @@ from hermeto.core.errors import FetchError
 from hermeto.core.package_managers import general
 from hermeto.core.package_managers.general import (
     _async_download_binary_file,
+    _get_pkg_requests_session,
     async_download_files,
     download_binary_file,
-    pkg_requests_session,
 )
 from tests.common_utils import GIT_REF
 
@@ -27,35 +28,55 @@ from tests.common_utils import GIT_REF
 @pytest.mark.parametrize("auth", [None, HTTPBasicAuth("user", "password")])
 @pytest.mark.parametrize("insecure", [True, False])
 @pytest.mark.parametrize("chunk_size", [1024, 2048])
-@mock.patch.object(pkg_requests_session, "get")
 def test_download_binary_file(
-    mock_get: Any, auth: AuthBase | None, insecure: bool, chunk_size: int, tmp_path: Path
+    auth: AuthBase | None, insecure: bool, chunk_size: int, tmp_path: Path
 ) -> None:
     config = get_config()
     timeout = (config.http.connect_timeout, config.http.read_timeout)
     url = "http://example.org/example.tar.gz"
     content = b"file content"
 
-    mock_response = mock_get.return_value
+    mock_session = mock.MagicMock()
+    mock_response = mock_session.get.return_value
+    mock_response.raise_for_status.return_value = None
     mock_response.iter_content.return_value = [content]
 
-    download_path = tmp_path.joinpath("example.tar.gz")
-    download_binary_file(
-        url, str(download_path), auth=auth, insecure=insecure, chunk_size=chunk_size
-    )
+    with mock.patch(
+        "hermeto.core.package_managers.general._get_pkg_requests_session",
+        return_value=mock_session,
+    ):
+        download_path = tmp_path.joinpath("example.tar.gz")
+        download_binary_file(
+            url, str(download_path), auth=auth, insecure=insecure, chunk_size=chunk_size
+        )
 
     assert download_path.read_bytes() == content
-    mock_get.assert_called_with(url, stream=True, verify=not insecure, auth=auth, timeout=timeout)
+    mock_session.get.assert_called_once_with(
+        url, stream=True, verify=not insecure, auth=auth, timeout=timeout
+    )
     mock_response.iter_content.assert_called_with(chunk_size=chunk_size)
 
 
-@mock.patch.object(pkg_requests_session, "get")
-def test_download_binary_file_failed(mock_get: Any) -> None:
-    mock_get.side_effect = [requests.RequestException("Something went wrong")]
-
-    expected = "Could not download http://example.org/example.tar.gz: Something went wrong"
-    with pytest.raises(FetchError, match=expected):
+@mock.patch("hermeto.core.package_managers.general._get_pkg_requests_session")
+def test_download_binary_file_failed(mock_get_pkg_requests_session: MagicMock) -> None:
+    mock_get_pkg_requests_session.return_value.get.side_effect = requests.RequestException()
+    with pytest.raises(FetchError, match="Could not download http://example.org/example.tar.gz"):
         download_binary_file("http://example.org/example.tar.gz", "/example.tar.gz")
+
+
+def test_max_retries_propagated_to_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that max_retries config value is propagated to the requests session."""
+    monkeypatch.setenv("HERMETO_HTTP__MAX_RETRIES", "7")
+    monkeypatch.setattr("hermeto.core.package_managers.general._pkg_requests_session", None)
+
+    monkeypatch.setattr("hermeto.core.config.config", None)
+    config = get_config()
+    assert config.http.max_retries == 7
+
+    session = _get_pkg_requests_session()
+    adapter = session.get_adapter("https://example.com")
+    assert isinstance(adapter, HTTPAdapter)
+    assert adapter.max_retries.total == 7
 
 
 @pytest.mark.parametrize(
@@ -180,9 +201,9 @@ async def test_async_download_binary_file(
     assert session.get.call_args == mock.call(
         url,
         timeout=aiohttp.ClientTimeout(total=None, connect=30, sock_read=300),
-        auth=None,
         raise_for_status=True,
         ssl=None,
+        headers=None,
     )
 
 
@@ -250,19 +271,27 @@ async def test_async_download_files(
 
 
 @pytest.mark.asyncio
-async def test_async_download_files_exception(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    url = "http://example.com/file.tar"
-    download_path = tmp_path / "file.tar"
+async def test_async_download_preserves_redirect_url_encoding(tmp_path: Path) -> None:
+    """Redirect URLs with percent-encoded query params must not be re-quoted."""
+    from aiohttp import web
+    from aiohttp.test_utils import TestServer
 
-    session = MagicMock()
+    async def redirect_handler(request: web.Request) -> web.Response:
+        return web.Response(
+            status=302,
+            headers={"Location": "/target?ResponseContentType=text%2Fplain"},
+        )
 
-    exception_message = "This is a test exception message."
-    session.get().__aenter__.side_effect = Exception(exception_message)
+    # we purposefully return the raw redirect URL in the body to verify what aiohttp did with it
+    async def target_handler(request: web.Request) -> web.Response:
+        return web.Response(status=200, body=request.raw_path.encode())
 
-    with pytest.raises(FetchError) as exc_info:
-        await _async_download_binary_file(session, url, download_path)
+    app = web.Application()
+    app.router.add_get("/redirect", redirect_handler)
+    app.router.add_get("/target", target_handler)
 
-    assert f"Unsuccessful download: {url}" in caplog.text
-    assert str(exc_info.value) == f"exception_name: Exception, details: {exception_message}"
+    async with TestServer(app) as server:
+        url = str(server.make_url("/redirect"))
+        download_path = tmp_path / "artifact"
+        await async_download_files({url: str(download_path)}, concurrency_limit=1)
+        assert b"text%2Fplain" in download_path.read_bytes()

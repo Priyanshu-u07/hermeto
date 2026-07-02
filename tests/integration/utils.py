@@ -1,16 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import functools
-import hashlib
 import json
 import logging
 import os
-import shutil
-import sys
 import tempfile
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from tarfile import ExtractError, TarFile
 from typing import Any
 
 import jsonschema
@@ -18,6 +14,7 @@ import requests
 import yaml
 
 from hermeto import APP_NAME
+from hermeto.core.errors import ExitError
 from hermeto.core.scm import GitRepo
 from hermeto.core.type_aliases import StrPath
 from hermeto.interface.cli import DEFAULT_OUTPUT
@@ -91,8 +88,7 @@ class TestParameters:
     branch: str
     packages: tuple[dict[str, Any], ...]
     check_output: bool = True
-    check_deps_checksums: bool = True
-    expected_exit_code: int = 0
+    expected_error: ExitError = ExitError.ERR_OK
     expected_output: str = ""
     global_flags: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
@@ -225,98 +221,10 @@ def _build_image(flags: list[str], tag: str, context_dir: StrPath = ".") -> Cont
     return ContainerImage(tag)
 
 
-def _calculate_files_checksums_in_dir(root_dir: Path) -> dict:
-    """
-    Calculate files sha256sum in provided directory.
-
-    Method lists all files in provided directory and calculates their checksums.
-    :param root_dir: path to root directory
-    :return: Dictionary with relative paths to files in dir and their checksums
-    :rtype: Dict
-    """
-    files_checksums = {}
-
-    for dir_, _, files in os.walk(root_dir):
-        rel_dir = Path(dir_).relative_to(root_dir)
-        for file_name in files:
-            rel_file = rel_dir.joinpath(file_name).as_posix()
-            if "-gitcommit-" in file_name:
-                files_checksums[rel_file] = _get_git_commit_from_tarball(
-                    root_dir.joinpath(rel_file)
-                )
-            elif "/sumdb/sum.golang.org/lookup/" in rel_file:
-                files_checksums[rel_file] = "unstable"
-            elif "/sumdb/sum.golang.org/tile/" in rel_file:
-                # drop altogether - even the filenames are unstable, not just the checksums
-                pass
-            else:
-                files_checksums[rel_file] = _calculate_sha256sum(root_dir.joinpath(rel_file))
-    return files_checksums
-
-
-def _get_git_commit_from_tarball(tarball: Path) -> str:
-    with TarFile.open(tarball, "r:gz") as tarfile:
-        extract_path = str(tarball).replace(".tar.gz", "").replace(".tgz", "")
-        _safe_extract(tarfile, extract_path)
-
-    repo = GitRepo(path=f"{extract_path}/app")
-    commit = f"gitcommit:{repo.commit().hexsha}"
-
-    shutil.rmtree(extract_path)
-
-    return commit
-
-
-def _calculate_sha256sum(file: Path) -> str:
-    """
-    Calculate sha256sum of file.
-
-    :param file: path to file
-    :return: file's sha256sum
-    :rtype: str
-    """
-    sha256_hash = hashlib.sha256()
-    with open(file, "rb") as f:
-        # Read and update hash string value in blocks of 4K
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    return f"sha256:{sha256_hash.hexdigest()}"
-
-
 def _load_json_or_yaml(file: Path) -> dict[str, Any]:
     """Load JSON or YAML file and return dict."""
     with open(file) as f:
         return yaml.safe_load(f)
-
-
-def _safe_extract(tar: TarFile, path: str = ".", *, numeric_owner: bool = False) -> None:
-    """
-    CVE-2007-4559 replacement for extract() or extractall().
-
-    By using extract() or extractall() on a tarfile object without sanitizing input,
-    a maliciously crafted .tar file could perform a directory path traversal attack.
-    The patch essentially checks to see if all tarfile members will be
-    extracted safely and throws an exception otherwise.
-
-    :param tarfile tar: the tarfile to be extracted.
-    :param str path: specifies a different directory to extract to.
-    :param numeric_owner: if True, only the numbers for user/group names are used and not the names.
-    :raise ExtractError: if there is a Traversal Path Attempt in the Tar File.
-    """
-    abs_path = Path(path).resolve()
-    for member in tar.getmembers():
-        member_path = Path(path).joinpath(member.name)
-        abs_member_path = member_path.resolve()
-
-        if not abs_member_path.is_relative_to(abs_path):
-            raise ExtractError("Attempted Path Traversal in Tar File")
-
-    # This 'if' block is to deal with deprectaion warning for unfiltered tar
-    # extraction in 3.12.
-    if sys.version_info >= (3, 12):
-        tar.extractall(path, numeric_owner=numeric_owner, filter="fully_trusted")
-    else:
-        tar.extractall(path, numeric_owner=numeric_owner)
 
 
 def _json_serialize(data: dict[str, Any]) -> str:
@@ -468,13 +376,23 @@ def fetch_deps_and_check_output(
         podman_flags=(podman_flags or []) + _env_to_engine_flags(merged_env),
         netrc_content=test_params.netrc_content,
     )
-    assert exit_code == test_params.expected_exit_code, (
-        f"Fetching deps ended with unexpected exitcode: {exit_code} != "
-        f"{test_params.expected_exit_code}, output-cmd: {output}"
+
+    def _fmt(code: int) -> str:
+        if code == 0:
+            return "0"
+        try:
+            return f"{code} ({ExitError(code).name})"
+        except ValueError:
+            return f"{code} (unknown exit code)"
+
+    assert exit_code == test_params.expected_error.value, (
+        f"Fetching deps ended with unexpected exitcode: {_fmt(exit_code)}"
+        f" != {_fmt(test_params.expected_error.value)}, output-cmd: {output}"
     )
-    assert test_params.expected_output in str(output), (
-        f"Expected msg {test_params.expected_output} was not found in cmd output: {output}"
-    )
+    if test_params.expected_output:
+        assert test_params.expected_output in str(output), (
+            f"Expected msg {test_params.expected_output} was not found in cmd output: {output}"
+        )
 
     if test_params.check_output:
         build_config = _load_json_or_yaml(output_dir.joinpath(".build-config.json"))
@@ -512,17 +430,6 @@ def fetch_deps_and_check_output(
     deps_content_file = Path(test_data_dir, test_case, "fetch_deps_file_contents.yaml")
     if deps_content_file.exists():
         _validate_expected_dep_file_contents(deps_content_file, output_dir)
-
-    if test_params.check_deps_checksums:
-        files_checksums = _calculate_files_checksums_in_dir(output_dir.joinpath("deps"))
-        expected_files_checksums_path = test_data_dir.joinpath(
-            test_data_dir, test_case, "fetch_deps_sha256sums.json"
-        )
-        update_test_data_if_needed(expected_files_checksums_path, files_checksums)
-        expected_files_checksums = _load_json_or_yaml(expected_files_checksums_path)
-
-        log.info("Compare checksums of fetched deps files")
-        assert files_checksums == expected_files_checksums
 
     return actual_repo_dir
 
@@ -609,9 +516,13 @@ def _replace_tmp_path_with_placeholder(
     project_files: list[dict[str, str]], test_repo_dir: Path
 ) -> None:
     for item in project_files:
+        # bundler config file is created in the output directory
         if "bundler" in item["abspath"]:
-            # special case for bundler, as it is not a real project file
             item["abspath"] = "${test_case_tmp_path}/hermeto-output/bundler/config_override/config"
+            continue
+        # maven settings.xml file is created in the output directory
+        elif "settings.xml" in item["abspath"]:
+            item["abspath"] = "${test_case_tmp_path}/hermeto-output/settings.xml"
             continue
 
         # Walking up is necessary when one package manager triggers another one

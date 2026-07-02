@@ -1,12 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
-import logging
 from pathlib import Path
 
 import pytest
 
 from . import utils
-
-log = logging.getLogger(__name__)
 
 
 def test_help(hermeto_image: utils.HermetoImage, tmp_path: Path) -> None:
@@ -37,9 +34,6 @@ def test_help(hermeto_image: utils.HermetoImage, tmp_path: Path) -> None:
                 branch="cargo/mixed-git-crate-dependency",
                 packages=({"path": ".", "type": "cargo"},),
                 check_output=True,
-                check_deps_checksums=False,
-                expected_exit_code=0,
-                expected_output="",
             ),
             [],  # No additional commands are run to verify the build
             [],
