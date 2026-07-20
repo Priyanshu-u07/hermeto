@@ -230,78 +230,10 @@ nox -s python-3.10 -- tests/unit/extras/test_envfile.py::test_cannot_determine_f
 
 In short, nox passes all arguments to the right of `--` directly to pytest.
 
-#### Generating new test data
-
-Whenever a particular package manager supported version is bumped it is considered good practice
-to also re-generate the mocked unit test data using that version of package manager (make sure you
-have it available in path). You do that by executing the corresponding script under
-`hack/mock-unittest-data`. Note that there may be times the data has to be re-generated even
-without bumping the backend version, e.g. we added support for a particular feature of the package
-manager which we didn't add at the time of the initial support release.
-
-Example:
-```shell
-hack/mock-unittest-data/gomod.sh
-```
-
-To generate new data (output, dependencies checksums, vendor checksums) and run integration tests with them:
-
-```shell
-nox -s generate-test-data
-```
-
-Generate data for test cases matching a pytest pattern:
-
-```shell
-nox -s generate-test-data -- -k test_e2e_gomod
-```
-
 ### Running integration tests
 
-Build Hermeto image (localhost/hermeto:latest) and run most integration tests:
-
-```shell
-nox -s integration-tests
-```
-
-Build Hermeto image (localhost/hermeto:latest) and run **all** integration tests:
-
-```shell
-nox -s all-integration-tests
-```
-
-> [!NOTE]
-> While developing, you can run the Nexus server with `tests/nexusserver/run.sh`.
-
-To run integration-tests with custom image, specify the HERMETO\_TEST\_IMAGE environment variable or use the --hermeto-image option. Examples:
-
-```shell
-HERMETO_TEST_IMAGE=ghcr.io/hermetoproject/hermeto:{tag} nox -s integration-tests
-HERMETO_TEST_IMAGE=localhost/hermeto:latest nox -s integration-tests
-
-nox -s integration-tests -- --hermeto-image=ghcr.io/hermetoproject/hermeto:{tag}
-nox -s integration-tests -- --hermeto-image=localhost/hermeto:latest
-```
-
-Another way to run integration tests is directly via `pytest`. This approach can be helpful for debugging and gives you more control over which tests are run and how they are executed. Examples:
-
-```shell
-HERMETO_TEST_IMAGE=localhost/hermeto:latest pytest [path/to/integration/test]
-
-pytest --hermeto-image=localhost/hermeto:latest [path/to/integration/test]
-```
-
-All hermeto integration test CLI options as well as the corresponding environment variables can be listed with `pytest --help`.
-
-To run integration tests in parallel, use the `-n` option + the number of workers. To utilize all CPU cores, use `auto` as the number of workers. Examples:
-
-```shell
-nox -s integration-tests -- -n 4
-nox -s integration-tests -- -n auto
-
-pytest [path/to/test] -n 4
-pytest [path/to/test] -n auto
-```
+See [tests/integration/README.md](tests/integration/README.md) for full details
+on running integration tests, available environment variables, and more.
 
 ### Adding new dependencies to the project
 

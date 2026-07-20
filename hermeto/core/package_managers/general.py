@@ -2,8 +2,10 @@
 import asyncio
 import logging
 import ssl
+import types
 from collections.abc import Mapping
-from typing import Any
+from types import TracebackType
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import aiohttp
@@ -12,18 +14,65 @@ import requests
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase
+from typing_extensions import Self
+from urllib3.connectionpool import ConnectionPool
+from urllib3.response import BaseHTTPResponse
 from urllib3.util.retry import Retry
 
 from hermeto.core.config import get_config
 from hermeto.core.errors import FetchError
-from hermeto.core.http_requests import (
-    DEFAULT_RETRY_OPTIONS,
-    SAFE_REQUEST_METHODS,
-)
 from hermeto.core.scm import get_repo_id
 from hermeto.core.type_aliases import StrPath
 
 _pkg_requests_session: requests.Session | None = None
+
+SAFE_REQUEST_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+BACKOFF_FACTOR = 1.3
+STATUS_FORCELIST = (500, 502, 503, 504)
+
+
+log = logging.getLogger(__name__)
+
+
+class SyncLoggingRetry(Retry):
+    """
+    Retry subclass that emits a hermeto-style debug log on each retry.
+    """
+
+    def increment(
+        self,
+        method: str | None = None,
+        url: str | None = None,
+        response: BaseHTTPResponse | None = None,
+        error: Exception | None = None,
+        _pool: ConnectionPool | None = None,
+        _stacktrace: TracebackType | None = None,
+    ) -> Self:
+        """
+        Log retry attempt at DEBUG level.
+        """
+        # retry object - Named to match urllib3.Retry internal logic.
+        new_retry = super().increment(
+            method=method,
+            url=url,
+            response=response,
+            error=error,
+            _pool=_pool,
+            _stacktrace=_stacktrace,
+        )
+        retry_number = len(new_retry.history)
+        status = response.status if response else "N/A"
+        backoff = new_retry.get_backoff_time()
+        total = retry_number + cast(int, self.total) - 1
+        log.debug(
+            "Retrying request: retry=%d/%d url=%s status=%s backoff=%.1fs",
+            retry_number,
+            total,
+            url,
+            status,
+            backoff,
+        )
+        return new_retry
 
 
 def _get_pkg_requests_session() -> requests.Session:
@@ -33,20 +82,19 @@ def _get_pkg_requests_session() -> requests.Session:
     global _pkg_requests_session
     if _pkg_requests_session is None:
         max_retries = get_config().http.max_retries
-        retry_options = {
-            **DEFAULT_RETRY_OPTIONS,
-            "allowed_methods": SAFE_REQUEST_METHODS,
-            "total": max_retries,
-        }
         _pkg_requests_session = Session()
-        adapter = HTTPAdapter(max_retries=Retry(**retry_options))
+        adapter = HTTPAdapter(
+            max_retries=SyncLoggingRetry(
+                backoff_factor=BACKOFF_FACTOR,
+                status_forcelist=STATUS_FORCELIST,
+                allowed_methods=SAFE_REQUEST_METHODS,
+                total=max_retries,
+            )
+        )
         _pkg_requests_session.mount("http://", adapter)
         _pkg_requests_session.mount("https://", adapter)
 
     return _pkg_requests_session
-
-
-log = logging.getLogger(__name__)
 
 
 def download_binary_file(
@@ -69,6 +117,7 @@ def download_binary_file(
     config = get_config()
     timeout = (config.http.connect_timeout, config.http.read_timeout)
     try:
+        log.debug("requests.get(url: %s)", url)
         resp = _get_pkg_requests_session().get(
             url, stream=True, verify=not insecure, auth=auth, timeout=timeout
         )
@@ -79,6 +128,8 @@ def download_binary_file(
     with open(download_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=chunk_size):
             f.write(chunk)
+
+    log.debug("Download completed - %s", url)
 
 
 def _get_aiohttp_timeout() -> aiohttp.ClientTimeout:
@@ -140,6 +191,53 @@ async def _async_download_binary_file(
     log.debug(f"Download completed - {url}")
 
 
+def _aiohttp_create_retry_trace_config(
+    retry_options: aiohttp_retry.JitterRetry,
+) -> aiohttp.TraceConfig:
+    """
+    Creates a TraceConfig that logs retry attempts using the provided retry options.
+    """
+
+    trace_config = aiohttp.TraceConfig()
+
+    async def on_request_end(
+        _session: aiohttp.ClientSession,
+        trace_config_ctx: types.SimpleNamespace,
+        params: aiohttp.TraceRequestEndParams,
+    ) -> None:
+        attempt = trace_config_ctx.trace_request_ctx["current_attempt"]
+        if attempt > 1 and params.response.status in retry_options.statuses:
+            file_name = params.url.name
+            log.debug(
+                "Retrying request: retry=%d/%d file=%s status=%d",
+                attempt - 1,
+                retry_options.attempts - 1,
+                file_name,
+                params.response.status,
+            )
+
+    async def on_request_exception(
+        _session: aiohttp.ClientSession,
+        trace_config_ctx: types.SimpleNamespace,
+        params: aiohttp.TraceRequestExceptionParams,
+    ) -> None:
+        attempt = trace_config_ctx.trace_request_ctx["current_attempt"]
+        exception_valid = any(isinstance(params.exception, exc) for exc in retry_options.exceptions)
+        if attempt > 1 and exception_valid:
+            file_name = params.url.name
+            log.debug(
+                "Retrying request: retry=%d/%d file=%s exception=%s",
+                attempt - 1,
+                retry_options.attempts - 1,
+                file_name,
+                type(params.exception).__name__,
+            )
+
+    trace_config.on_request_exception.append(on_request_exception)
+    trace_config.on_request_end.append(on_request_end)
+    return trace_config
+
+
 async def async_download_files(
     files_to_download: Mapping[str, StrPath],
     concurrency_limit: int,
@@ -153,22 +251,23 @@ async def async_download_files(
     :param ssl_context: Optional SSL context for the requests.
     :param headers: Optional per-URL headers mapping (URL -> headers dict).
     """
-    trace_config = aiohttp.TraceConfig()
+
     max_retries = get_config().http.max_retries
     # aiohttp uses n calls (1 call, n-1 retries).
     max_retries = max_retries + 1
     retry_options = aiohttp_retry.JitterRetry(
-        start_timeout=DEFAULT_RETRY_OPTIONS["backoff_factor"],
+        start_timeout=BACKOFF_FACTOR,
         attempts=max_retries,
-        statuses=set(DEFAULT_RETRY_OPTIONS["status_forcelist"]),
+        statuses=set(STATUS_FORCELIST),
         exceptions={
             aiohttp.ClientConnectionError,
             aiohttp.ClientPayloadError,
         },
     )
+
     retry_client = aiohttp_retry.RetryClient(
         retry_options=retry_options,
-        trace_configs=[trace_config],
+        trace_configs=[_aiohttp_create_retry_trace_config(retry_options)],
         # respect proxy settings and .netrc
         trust_env=True,
         # preserve percent-encoding in redirect URLs (e.g. signed CloudFront URLs)
