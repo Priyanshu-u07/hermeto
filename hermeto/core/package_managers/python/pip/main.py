@@ -324,7 +324,7 @@ def _download_vcs_package(
     pip_deps_dir: RootedPath,
 ) -> VCSPackage:
     """Fetch a Python package from VCS (only git is supported)."""
-    git_info = extract_git_info(req.url)
+    git_info = extract_git_info(req.direct_access_url)
 
     download_to = pip_deps_dir.join_within_root(_get_external_requirement_filepath(req))
     download_to.path.parent.mkdir(exist_ok=True, parents=True)
@@ -358,7 +358,7 @@ def _download_url_package(
 
     :param trusted_hosts: if host (or host:port) is trusted, do not verify SSL
     """
-    parsed_url = urlparse.urlparse(req.url)
+    parsed_url = urlparse.urlparse(req.direct_access_url)
 
     download_to = pip_deps_dir.join_within_root(_get_external_requirement_filepath(req))
     download_to.path.parent.mkdir(exist_ok=True, parents=True)
@@ -376,7 +376,7 @@ def _download_url_package(
     else:
         insecure = False
 
-    download_binary_file(req.url, download_to.path, insecure=insecure)
+    download_binary_file(req.direct_access_url, download_to.path, insecure=insecure)
 
     hashes = req.hashes
     missing_req_file_checksum = True
@@ -393,7 +393,7 @@ def _download_url_package(
         requirement_file=str(requirements_file.file_path.subpath_from_root),
         missing_req_file_checksum=missing_req_file_checksum,
         package_type="wheel" if parsed_url.path.endswith(WHEEL_FILE_EXTENSION) else "",
-        original_url=req.url,
+        original_url=req.direct_access_url,
         checksum=req.hashes[0],
     )
     log.debug(
@@ -433,10 +433,9 @@ def _resolve_and_download_pypi_packages(
     # No attempt should be made at logging into custom indices, if query URL ends up pointing
     # to a custom index then authorization must be skipped.
     if config.pip.proxy_login and config.pip.proxy_password and (query_url == proxy_url):
-        requests_auth = requests.auth.HTTPBasicAuth(
-            config.pip.proxy_login, config.pip.proxy_password
-        )
-        aiohttp_auth = aiohttp.encode_basic_auth(config.pip.proxy_login, config.pip.proxy_password)
+        proxy_password = config.pip.proxy_password.get_secret_value()
+        requests_auth = requests.auth.HTTPBasicAuth(config.pip.proxy_login, proxy_password)
+        aiohttp_auth = aiohttp.encode_basic_auth(config.pip.proxy_login, proxy_password)
 
     resolve_callback = functools.partial(
         process_package_distributions,
@@ -648,7 +647,7 @@ def _get_external_requirement_filepath(requirement: PipRequirement) -> Path:
         package = requirement.package
         hash_spec = requirement.hashes[0]
         _, _, digest = hash_spec.partition(":")
-        orig_url = urlparse.urlparse(requirement.url)
+        orig_url = urlparse.urlparse(requirement.direct_access_url)
         file_ext = ""
         for ext in ALL_FILE_EXTENSIONS:
             if orig_url.path.endswith(ext):
@@ -663,7 +662,7 @@ def _get_external_requirement_filepath(requirement: PipRequirement) -> Path:
             filepath = Path(f"{package}-{digest}{file_ext}")
 
     elif requirement.kind == "vcs":
-        git_info = extract_git_info(requirement.url)
+        git_info = extract_git_info(requirement.direct_access_url)
         repo = git_info["repo"]
         ref = git_info["ref"]
         filepath = Path(f"{repo}-gitcommit-{ref}.tar.gz")
@@ -741,7 +740,7 @@ def _replace_external_requirements(requirements_file_path: RootedPath) -> Projec
         if requirement.kind in ("url", "vcs"):
             path = _get_external_requirement_filepath(requirement)
             templated_abspath = Path("${output_dir}", "deps", "pip", path)
-            return requirement.copy(url=f"file://{templated_abspath}")
+            return requirement.update(url=f"file://{templated_abspath}")
         return None
 
     replaced = [maybe_replace(requirement) for requirement in requirements_file.requirements]

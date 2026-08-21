@@ -2,9 +2,21 @@ name: Gating
 
 on:
   pull_request:
+    # Documentation-only changes cannot break CI.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'mkdocs.yml'
   push:
+    # Documentation-only changes cannot break CI.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'mkdocs.yml'
     branches:
       - main
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs: {}
 
@@ -74,14 +86,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: hadolint/hadolint-action@v3.3.0
+      - uses: hadolint/hadolint-action@v3.4.0
         with:
           dockerfile: Dockerfile
           # Ignore list:
           # * DL3041 - Specify version with dnf install -y <package>-<version>
           ignore: DL3041
           failure-threshold: warning
-      - uses: hadolint/hadolint-action@v3.3.0
+      - uses: hadolint/hadolint-action@v3.4.0
         with:
           dockerfile: tests/integration/Containerfile.test
           ignore: DL3006
@@ -100,7 +112,7 @@ jobs:
         with:
           files: "**/*.md"
           separator: ","
-      - uses: DavidAnson/markdownlint-cli2-action@v24
+      - uses: DavidAnson/markdownlint-cli2-action@v24.2.0
         if: steps.changed-files.outputs.any_changed == 'true'
         with:
           globs: ${{ steps.changed-files.outputs.all_changed_files }}

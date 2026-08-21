@@ -8,6 +8,7 @@ from types import TracebackType
 from typing import Any, cast
 from urllib.parse import urlparse
 
+import aiofiles
 import aiohttp
 import aiohttp_retry
 import requests
@@ -19,7 +20,7 @@ from urllib3.connectionpool import ConnectionPool
 from urllib3.response import BaseHTTPResponse
 from urllib3.util.retry import Retry
 
-from hermeto.core.config import get_config
+from hermeto.core.config import ProxyUrl, get_config
 from hermeto.core.errors import FetchError
 from hermeto.core.scm import get_repo_id
 from hermeto.core.type_aliases import StrPath
@@ -29,7 +30,7 @@ _pkg_requests_session: requests.Session | None = None
 SAFE_REQUEST_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 BACKOFF_FACTOR = 1.3
 STATUS_FORCELIST = (500, 502, 503, 504)
-
+DEFAULT_CHUNK_SIZE = 65536  # 64KB
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ def download_binary_file(
     download_path: StrPath,
     auth: AuthBase | None = None,
     insecure: bool = False,
-    chunk_size: int = 8192,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
 ) -> None:
     """
     Download a binary file (such as a TAR archive) from a URL.
@@ -111,25 +112,24 @@ def download_binary_file(
     :param [StrPath] download_path: Path to download file to
     :param requests.auth.AuthBase auth: Authentication for the URL
     :param bool insecure: Do not verify SSL for the URL
-    :param int chunk_size: Chunk size param for Response.iter_content()
+    :param int chunk_size: Max size of each chunk to read from the response
     :raise FetchError: If download failed
     """
     config = get_config()
     timeout = (config.http.connect_timeout, config.http.read_timeout)
+    log.debug("Downloading %s", url)
+
+    session = _get_pkg_requests_session()
     try:
-        log.debug("requests.get(url: %s)", url)
-        resp = _get_pkg_requests_session().get(
-            url, stream=True, verify=not insecure, auth=auth, timeout=timeout
-        )
-        resp.raise_for_status()
+        response = session.get(url, stream=True, verify=not insecure, auth=auth, timeout=timeout)
+        response.raise_for_status()
+
+        with open(download_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                f.write(chunk)
+
     except requests.RequestException as e:
-        raise FetchError(f"Could not download {url}: {e}")
-
-    with open(download_path, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=chunk_size):
-            f.write(chunk)
-
-    log.debug("Download completed - %s", url)
+        raise FetchError(f"Could not download {url}") from e
 
 
 def _get_aiohttp_timeout() -> aiohttp.ClientTimeout:
@@ -148,7 +148,7 @@ async def _async_download_binary_file(
     download_path: StrPath,
     headers: dict[str, str] | None = None,
     ssl_context: ssl.SSLContext | None = None,
-    chunk_size: int = 8192,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
 ) -> None:
     """
     Download a binary file (such as a TAR archive) from a URL using asyncio.
@@ -157,38 +157,22 @@ async def _async_download_binary_file(
     :param str url: URL for file download
     :param str download_path: File path location
     :param headers: Optional headers dict for this request.
-    :param int chunk_size: Chunk size param for Response.content.read()
+    :param int chunk_size: Max size of each chunk to read from the response
     :raise FetchError: If download failed
     """
+    timeout = _get_aiohttp_timeout()
+    log.debug("Downloading %s", url)
+
     try:
-        timeout = _get_aiohttp_timeout()
-
-        log.debug(
-            f"aiohttp.ClientSession.get(url: {url}, timeout: {timeout}, raise_for_status: True)"
-        )
-
         async with session.get(
-            url,
-            timeout=timeout,
-            raise_for_status=True,
-            ssl=ssl_context,
-            headers=headers,
-        ) as resp:
-            with open(download_path, "wb") as f:
-                while True:
-                    chunk = await resp.content.read(chunk_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+            url, timeout=timeout, raise_for_status=True, ssl=ssl_context, headers=headers
+        ) as response:
+            async with aiofiles.open(download_path, "wb") as f:
+                async for chunk in response.content.iter_chunked(chunk_size):
+                    await f.write(chunk)
 
-    except Exception as exception:
-        log.error(f"Unsuccessful download: {url}")
-        # "from None" since we have the exception context in the logs
-        raise FetchError(
-            f"exception_name: {exception.__class__.__name__}, details: {exception}"
-        ) from None
-
-    log.debug(f"Download completed - {url}")
+    except Exception as e:
+        raise FetchError(f"Could not download {url}") from e
 
 
 def _aiohttp_create_retry_trace_config(
@@ -365,3 +349,18 @@ def extract_git_info(vcs_url: str) -> dict[str, Any]:
         "namespace": namespace,
         "repo": repo,
     }
+
+
+def patch_url_to_point_to_proxy(url: str, proxy_url: ProxyUrl) -> str:
+    """
+    >>> patch_url_to_point_to_proxy('https://registry.npmjs.org/foo/-/foo-1.0.0.tgz', 'http://proxy.com/npm/registry')
+    'http://proxy.com/npm/registry/foo/-/foo-1.0.0.tgz'
+    >>> patch_url_to_point_to_proxy('https://registry.npmjs.org/foo/-/foo-1.0.0.tgz', 'http://proxy.com/npm/registry/')
+    'http://proxy.com/npm/registry/foo/-/foo-1.0.0.tgz'
+    >>> patch_url_to_point_to_proxy('https://rubygems.org/downloads/foo-1.0.0.gem', 'http://proxy.com/rubygems/registry/')
+    'http://proxy.com/rubygems/registry/downloads/foo-1.0.0.gem'
+    """
+    str_proxy_url = str(proxy_url)
+    str_proxy_url = str_proxy_url if str_proxy_url[-1] == "/" else str_proxy_url + "/"
+    url_path = urlparse(url).path.removeprefix("/")
+    return str_proxy_url + url_path

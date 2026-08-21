@@ -17,6 +17,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+  "aiofiles",
   "aiohttp",
   "aiohttp-retry",
   "createrepo-c ; sys_platform == 'linux'",
@@ -65,6 +66,7 @@ fallback_version = "0.0.0+dev.fallback"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+extend-exclude = ["tests/integration/*/scenarios/*/in", "tests/integration/*/scenarios/*/out"]
 
 [tool.ruff.lint]
 select = [
@@ -81,6 +83,7 @@ ignore = [
     "D100",  # missing docstring in public module
     "D104",  # missing docstring in public package
     "D105",  # missing docstring in magic method
+    "D107",  # missing docstring in __init__
     "E501",  # line too long
     "E731",  # do not assign a lambda expression
     "S404",  # import subprocess
@@ -113,6 +116,7 @@ plugins = ["pydantic.mypy"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 disallow_untyped_decorators = true
+exclude = ["tests/integration/.*/scenarios/.*/in/", "tests/integration/.*/scenarios/.*/out/"]
 
 # TODO: pyarn does not currently have type annotations
 [[tool.mypy.overrides]]

@@ -10,10 +10,10 @@ from urllib.parse import urlparse
 import aiohttp
 
 from hermeto.core.checksum import ChecksumInfo, must_match_any_checksum
-from hermeto.core.config import ProxyUrl, get_config
+from hermeto.core.config import get_config
 from hermeto.core.errors import LockfileNotFound, MissingChecksum, PackageRejected
 from hermeto.core.models.output import ProjectFile
-from hermeto.core.package_managers.general import async_download_files
+from hermeto.core.package_managers.general import async_download_files, patch_url_to_point_to_proxy
 from hermeto.core.package_managers.javascript.npm.project import (
     PackageLock,
     ResolvedNpmPackage,
@@ -64,19 +64,6 @@ def _clone_repo_pack_archive(
     return download_path
 
 
-def patch_url_to_point_to_proxy(url: str, proxy_url: ProxyUrl) -> str:
-    """
-    >>> patch_url_to_point_to_proxy('https://registry.npmjs.org/foo/-/foo-1.0.0.tgz', 'http://proxy.com/npm/registry')
-    'http://proxy.com/npm/registry/foo/-/foo-1.0.0.tgz'
-    >>> patch_url_to_point_to_proxy('https://registry.npmjs.org/foo/-/foo-1.0.0.tgz', 'http://proxy.com/npm/registry/')
-    'http://proxy.com/npm/registry/foo/-/foo-1.0.0.tgz'
-    """
-    str_proxy_url = str(proxy_url)
-    str_proxy_url = str_proxy_url if str_proxy_url[-1] == "/" else str_proxy_url + "/"
-    url_path = urlparse(url).path.removeprefix("/")
-    return str_proxy_url + url_path
-
-
 async def async_download_with_auth(
     files_without_auth: dict[str, Path],
     files_with_auth: dict[str, Path],
@@ -120,11 +107,12 @@ def _get_npm_dependencies(
     files_to_download: dict[str, dict[str, Any]] = {}
     download_paths = {}
     config = get_config()
-    npm_proxy_basic_auth = (
-        aiohttp.encode_basic_auth(login=config.npm.proxy_login, password=config.npm.proxy_password)
-        if config.npm.proxy_login and config.npm.proxy_password
-        else None
-    )
+    npm_proxy_basic_auth = None
+    if config.npm.proxy_login and config.npm.proxy_password:
+        npm_proxy_basic_auth = aiohttp.encode_basic_auth(
+            login=config.npm.proxy_login,
+            password=config.npm.proxy_password.get_secret_value(),
+        )
 
     for url, info in deps_to_download.items():
         url = normalize_resolved_url(url)

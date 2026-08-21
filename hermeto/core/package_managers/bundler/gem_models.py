@@ -3,18 +3,23 @@ import logging
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urljoin, urlparse
+from urllib.parse import ParseResult, urljoin, urlparse
 
 import pydantic
 from packageurl import PackageURL
+from pydantic import HttpUrl
 from typing_extensions import Self
 
 from hermeto.core.config import get_config
 from hermeto.core.constants import Mode
 from hermeto.core.errors import NotAGitRepo
+from hermeto.core.models.property_semantics import PropertySet
+from hermeto.core.models.sbom import PROXY_COMMENT, Component, ExternalReference
 from hermeto.core.package_managers.general import get_vcs_qualifiers
 from hermeto.core.rooted_path import PathOutsideRoot, RootedPath
 from hermeto.core.scm import GitRepo
+
+RUBYGEMS_URLS: tuple[str, str] = ("https://rubygems.org", "http://rubygems.org")
 
 AcceptedUrl = Annotated[
     pydantic.HttpUrl,
@@ -41,6 +46,27 @@ class _GemMetadata(pydantic.BaseModel):
     name: str
     version: str
 
+    @property
+    def purl(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def _is_binary(self) -> bool:
+        return False
+
+    def to_component(self, proxy_url: HttpUrl | None = None) -> Component:
+        """Build an SBOM Component from this dependency."""
+        return Component(
+            name=self.name,
+            version=self.version,
+            purl=self.purl,
+            properties=PropertySet(bundler_package_binary=self._is_binary).to_properties(),
+            external_references=self._get_external_refs(proxy_url),
+        )
+
+    def _get_external_refs(self, proxy_url: HttpUrl | None) -> list[ExternalReference] | None:  # noqa: ARG002
+        return None
+
 
 class GemDependency(_GemMetadata):
     """
@@ -51,23 +77,44 @@ class GemDependency(_GemMetadata):
         checksum:   The checksum of the gem.
     """
 
-    source: str
+    source: HttpUrl
     checksum: str | None = None
 
     @cached_property
     def purl(self) -> str:
         """Get PURL for this dependency."""
-        purl = PackageURL(type="gem", name=self.name, version=self.version)
+        qualifiers: dict[str, str] | None = None
+        normalized_source: str = str(self.source).rstrip("/")
+
+        parsed: ParseResult = urlparse(normalized_source)
+
+        host: str = parsed.hostname or ""
+        if ":" in host:
+            host = f"[{host}]"
+        if parsed.port is not None:
+            host += f":{parsed.port}"
+
+        normalized_source = parsed._replace(netloc=host, query="", fragment="").geturl()
+
+        if normalized_source not in RUBYGEMS_URLS:
+            qualifiers = {"repository_url": normalized_source}
+
+        purl = PackageURL(type="gem", name=self.name, version=self.version, qualifiers=qualifiers)
         return purl.to_string()
 
     @cached_property
     def remote_location(self) -> str:
         """Return remote location to download this gem from."""
-        return urljoin(self.source, f"downloads/{self.name}-{self.version}.gem")
+        return urljoin(str(self.source), f"downloads/{self.name}-{self.version}.gem")
 
     def download_location(self, deps_dir: RootedPath) -> RootedPath:
         """Get the file system location of the gem."""
         return deps_dir.join_within_root(Path(f"{self.name}-{self.version}.gem"))
+
+    def _get_external_refs(self, proxy_url: HttpUrl | None) -> list[ExternalReference] | None:
+        if proxy_url is None:
+            return None
+        return [ExternalReference(url=str(proxy_url), comment=PROXY_COMMENT)]
 
 
 class GemPlatformSpecificDependency(GemDependency):
@@ -87,11 +134,17 @@ class GemPlatformSpecificDependency(GemDependency):
         # -gnu suffix being dropped from some platforms. This was observed on
         # sqlite3-aarch-linux-gnu. We discourage using outdated platforms
         # for building dependencies and cnsider this to be a limitation of Ruby.
-        return urljoin(self.source, f"downloads/{self.name}-{self.version}-{self.platform}.gem")
+        return urljoin(
+            str(self.source), f"downloads/{self.name}-{self.version}-{self.platform}.gem"
+        )
 
     def download_location(self, deps_dir: RootedPath) -> RootedPath:
         """Get the file system location of the gem."""
         return deps_dir.join_within_root(Path(f"{self.name}-{self.version}-{self.platform}.gem"))
+
+    @property
+    def _is_binary(self) -> bool:
+        return True
 
 
 class GitDependency(_GemMetadata):

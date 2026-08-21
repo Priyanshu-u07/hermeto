@@ -6,25 +6,28 @@ from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent
 
+import aiohttp
 from packageurl import PackageURL
 
 from hermeto import APP_NAME
+from hermeto.core.checksum import ChecksumInfo, must_match_any_checksum
 from hermeto.core.config import get_config
 from hermeto.core.constants import Mode
 from hermeto.core.errors import NotAGitRepo, PackageRejected, UnsupportedFeature
 from hermeto.core.models.input import BundlerBinaryFilters, Request
 from hermeto.core.models.output import EnvironmentVariable, ProjectFile, RequestOutput
-from hermeto.core.models.property_semantics import Property, PropertySet
 from hermeto.core.models.sbom import Component, create_backend_annotation
 from hermeto.core.package_managers.bundler.parser import (
     GemDependency,
-    GemPlatformSpecificDependency,
     GitDependency,
-    ParseResult,
     PathDependency,
     parse_lockfile,
 )
-from hermeto.core.package_managers.general import async_download_files, get_vcs_qualifiers
+from hermeto.core.package_managers.general import (
+    async_download_files,
+    get_vcs_qualifiers,
+    patch_url_to_point_to_proxy,
+)
 from hermeto.core.rooted_path import RootedPath
 from hermeto.core.scm import get_repo_id
 
@@ -80,8 +83,101 @@ def _resolve_bundler_package(
     deps_dir = output_dir.join_within_root("deps", "bundler")
     deps_dir.path.mkdir(parents=True, exist_ok=True)
     dependencies = parse_lockfile(package_dir, binary_filters)
+    proxy_url = get_config().bundler.proxy_url
 
-    name, version = _get_main_package_name_and_version(package_dir, dependencies)
+    gem_deps: list[GemDependency] = []
+    git_deps: list[GitDependency] = []
+    path_deps: list[PathDependency] = []
+
+    for dep in dependencies:
+        if isinstance(dep, GemDependency):
+            gem_deps.append(dep)
+        elif isinstance(dep, GitDependency):
+            git_deps.append(dep)
+        elif isinstance(dep, PathDependency):
+            path_deps.append(dep)
+
+    main_component = _create_main_component(package_dir, path_deps)
+    _download_gems(gem_deps, deps_dir)
+    git_paths = _clone_git_deps(git_deps, deps_dir)
+
+    components = [main_component] + [dep.to_component(proxy_url) for dep in dependencies]
+    return components, git_paths
+
+
+def _download_gems(
+    gem_deps: list[GemDependency],
+    deps_dir: RootedPath,
+) -> None:
+    """Download rubygems registry dependencies, rewriting URLs through a proxy if configured."""
+    config = get_config()
+    proxy_url = config.bundler.proxy_url
+    proxy_auth = (
+        aiohttp.encode_basic_auth(
+            login=config.bundler.proxy_login,
+            password=config.bundler.proxy_password.get_secret_value(),
+        )
+        if config.bundler.proxy_login and config.bundler.proxy_password
+        else None
+    )
+
+    files_to_download: dict[str, RootedPath] = {}
+    for dep in gem_deps:
+        fetch_url = (
+            patch_url_to_point_to_proxy(dep.remote_location, proxy_url)
+            if proxy_url is not None
+            else dep.remote_location
+        )
+        files_to_download[fetch_url] = dep.download_location(deps_dir)
+
+    if not files_to_download:
+        return
+
+    headers = None
+    if proxy_auth is not None:
+        headers = {url: {"Authorization": proxy_auth} for url in files_to_download}
+
+    asyncio.run(
+        async_download_files(
+            files_to_download=files_to_download,
+            concurrency_limit=config.runtime.concurrency_limit,
+            headers=headers,
+        )
+    )
+
+    _verify_checksums(gem_deps, deps_dir)
+
+
+def _verify_checksums(
+    gem_deps: list[GemDependency],
+    deps_dir: RootedPath,
+) -> None:
+    for dep in gem_deps:
+        if dep.checksum is None:
+            log.warning("No checksum found for %s-%s, skipping verification", dep.name, dep.version)
+            continue
+
+        must_match_any_checksum(
+            dep.download_location(deps_dir).path,
+            [ChecksumInfo.from_hash(checksum) for checksum in dep.checksum.split()],
+        )
+
+
+def _clone_git_deps(
+    git_deps: list[GitDependency],
+    deps_dir: RootedPath,
+) -> list[tuple[DepName, FSDepName, DepURL]]:
+    """Clone git dependencies, returning info needed for hermetic build redirection."""
+    git_paths = []
+    for dep in git_deps:
+        dep.download_to(deps_dir)
+        git_paths.append((dep.name, dep.repo_name + "-" + dep.ref[:12], str(dep.url)))
+    return git_paths
+
+
+def _create_main_component(package_dir: RootedPath, path_deps: list[PathDependency]) -> Component:
+    """Build the SBOM Component for the main package being processed."""
+    name, version = _get_main_package_name_and_version(package_dir, path_deps)
     try:
         qualifiers = get_vcs_qualifiers(package_dir.root)
     except NotAGitRepo:
@@ -97,37 +193,12 @@ def _resolve_bundler_package(
         subpath=str(package_dir.subpath_from_root),
     )
 
-    components = [Component(name=name, version=version, purl=main_package_purl.to_string())]
-    git_paths = []
-    files_to_download: dict[str, RootedPath] = {}
-    for dep in dependencies:
-        properties: list[Property] = []
-        match dep:
-            case GemPlatformSpecificDependency():
-                files_to_download[dep.remote_location] = dep.download_location(deps_dir)
-                properties = PropertySet(bundler_package_binary=True).to_properties()
-            case GemDependency():
-                files_to_download[dep.remote_location] = dep.download_location(deps_dir)
-            case GitDependency():
-                dep.download_to(deps_dir)
-                git_paths.append((dep.name, dep.repo_name + "-" + dep.ref[:12], str(dep.url)))
-
-        c = Component(name=dep.name, version=dep.version, purl=dep.purl, properties=properties)
-        components.append(c)
-
-    if files_to_download:
-        asyncio.run(
-            async_download_files(
-                files_to_download=files_to_download,
-                concurrency_limit=get_config().runtime.concurrency_limit,
-            )
-        )
-    return components, git_paths
+    return Component(name=name, version=version, purl=main_package_purl.to_string())
 
 
 def _get_main_package_name_and_version(
     package_dir: RootedPath,
-    dependencies: ParseResult,
+    path_deps: list[PathDependency],
 ) -> tuple[str, str | None]:
     """
     Get main package name and version.
@@ -135,7 +206,7 @@ def _get_main_package_name_and_version(
     The main package is the package that is being processed by our application.
     Not any of its dependencies.
     """
-    name_and_version = _get_name_and_version_from_lockfile(dependencies)
+    name_and_version = _get_name_and_version_from_lockfile(path_deps)
     if name_and_version is not None:
         return name_and_version
 
@@ -156,7 +227,7 @@ def _get_main_package_name_and_version(
     return name, None
 
 
-def _get_name_and_version_from_lockfile(dependencies: ParseResult) -> tuple[str, str] | None:
+def _get_name_and_version_from_lockfile(path_deps: list[PathDependency]) -> tuple[str, str] | None:
     """
     Extract the package name and version from dependencies in the Gemfile.lock.
 
@@ -171,8 +242,8 @@ def _get_name_and_version_from_lockfile(dependencies: ParseResult) -> tuple[str,
     See design doc for more details:
     https://github.com/hermetoproject/hermeto/blob/main/docs/design/bundler.md
     """
-    for dep in dependencies:
-        if isinstance(dep, PathDependency) and dep.subpath == ".":
+    for dep in path_deps:
+        if dep.subpath == ".":
             return dep.name, dep.version
 
     return None

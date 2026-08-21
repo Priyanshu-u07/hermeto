@@ -25,12 +25,17 @@ from tests.nexusserver import DEFAULT_NEXUS_HOST, DEFAULT_NEXUS_TLS_PORT
 
 _NEXUS_BASE_URL = f"https://{DEFAULT_NEXUS_HOST}:{DEFAULT_NEXUS_TLS_PORT}"
 
+APP_NAME = APP_NAME.upper()
+
 _PROXY_URL_ENV_PATTERN = re.compile(rf"^{APP_NAME}_([A-Z0-9_]+)__PROXY_URL$", re.IGNORECASE)
 
 _DEFAULT_PROXY_LOGIN = "hermeto-user"
 _DEFAULT_PROXY_PASSWORD = "hermeto-pass"  # noqa: S105
 
 DEFAULT_LOCAL_NEXUS_PROXY_ENV: dict[str, str] = {
+    f"{APP_NAME}_BUNDLER__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/rubygems-proxy/",
+    f"{APP_NAME}_BUNDLER__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
+    f"{APP_NAME}_BUNDLER__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
     f"{APP_NAME}_NPM__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/npm-proxy/",
     f"{APP_NAME}_NPM__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
     f"{APP_NAME}_NPM__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
@@ -46,6 +51,9 @@ DEFAULT_LOCAL_NEXUS_PROXY_ENV: dict[str, str] = {
     f"{APP_NAME}_GOMOD__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/go-proxy/",
     f"{APP_NAME}_GOMOD__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
     f"{APP_NAME}_GOMOD__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
+    f"{APP_NAME}_CARGO__PROXY_URL": f"{_NEXUS_BASE_URL}/repository/cargo-proxy/",
+    f"{APP_NAME}_CARGO__PROXY_LOGIN": _DEFAULT_PROXY_LOGIN,
+    f"{APP_NAME}_CARGO__PROXY_PASSWORD": _DEFAULT_PROXY_PASSWORD,
 }
 
 _DIRECT_SOURCE_QUALIFIERS = frozenset({"vcs_url", "download_url"})
@@ -110,6 +118,9 @@ def _is_proxyable_component(component: Component) -> bool:
         (  # local traits for go mod:
             component.purl.startswith("pkg:golang")
             and (component.version is None or "vcs_url" in component.purl)
+        ),
+        (  # local traits for cargo:
+            component.purl.startswith("pkg:cargo") and ("vcs_url" in component.purl)
         ),
     )
 

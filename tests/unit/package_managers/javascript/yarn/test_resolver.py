@@ -18,6 +18,7 @@ from hermeto.core.errors import (
     PackageRejected,
     UnsupportedFeature,
 )
+from hermeto.core.models.property_semantics import PropertySet
 from hermeto.core.models.sbom import Component, Patch, PatchDiff, Pedigree
 from hermeto.core.package_managers.javascript.yarn.locators import (
     Locator,
@@ -414,11 +415,64 @@ def test_create_components_single_package(
     mocked_package = mocked_package.resolve_cache_path(output_dir)
     mock_package_json(mocked_package, project_dir)
 
-    components = create_components([mocked_package.package], mock_project(project_dir), output_dir)
+    components = create_components(
+        [mocked_package.package], [mocked_package.package], mock_project(project_dir), output_dir
+    )
 
     assert len(components) == 1
     assert components[0] == expect_component
     assert caplog.messages == expect_logs
+
+
+@mock.patch("hermeto.core.package_managers.javascript.yarn.resolver.get_repo_id")
+def test_create_components_marks_dev_dependencies(
+    mock_get_repo_id: mock.Mock, rooted_tmp_path: RootedPath
+) -> None:
+    """Dev dependencies (packages not in prod_packages) are marked with npm_development property."""
+    mock_get_repo_id.return_value = MOCK_REPO_ID
+    project_dir = rooted_tmp_path.join_within_root("project")
+    output_dir = rooted_tmp_path.join_within_root("output")
+
+    mocked_prod_package = MockedPackage(
+        Package(
+            raw_locator="foo@npm:1.0.0",
+            version="1.0.0",
+            checksum="a4a97ec07d7ea112c517036882b2ac22f3109b7b19077dc656316d07d308438aac28e4d9746dc4d84bf6b1e75b4a7b0a5f3cb30592419f128ca9a8cee3bcfa17",
+            cache_path=str(output_dir.join_within_root(".yarn/cache/foo-npm-1.0.0-a4a97ec07d.zip")),
+        ),
+        is_hardlink=True,
+    )
+
+    mocked_dev_package = MockedPackage(
+        Package(
+            raw_locator="bar@npm:2.0.0",
+            version="2.0.0",
+            checksum="f1e2d3c4b5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
+            cache_path=str(output_dir.join_within_root(".yarn/cache/bar-npm-2.0.0-f1e2d3c4b5.zip")),
+        ),
+        is_hardlink=True,
+    )
+
+    resolved_prod_pkg = mocked_prod_package.resolve_cache_path(output_dir)
+    resolved_dev_pkg = mocked_dev_package.resolve_cache_path(output_dir)
+
+    mock_package_json(resolved_prod_pkg, project_dir)
+    mock_package_json(resolved_dev_pkg, project_dir)
+
+    all_components = create_components(
+        packages=[mocked_prod_package.package, mocked_dev_package.package],
+        prod_packages=[resolved_prod_pkg.package],
+        project=mock_project(project_dir),
+        output_dir=output_dir,
+    )
+
+    assert len(all_components) == 2
+
+    dev_components = [
+        c for c in all_components if PropertySet.from_properties(c.properties).npm_development
+    ]
+    assert len(dev_components) == 1
+    assert dev_components[0].name == "bar"
 
 
 @mock.patch("hermeto.core.package_managers.javascript.yarn.resolver.get_repo_id")
@@ -473,6 +527,7 @@ def test_create_components_patched_packages(
     ]
 
     components = create_components(
+        [mocked_package.package for mocked_package in mocked_packages],
         [mocked_package.package for mocked_package in mocked_packages],
         mock_project(project_dir),
         output_dir=RootedPath("/unused"),
@@ -545,6 +600,7 @@ def test_create_components_patched_packages_with_multiple_paths(
     ]
 
     components = create_components(
+        [mocked_package.package for mocked_package in mocked_packages],
         [mocked_package.package for mocked_package in mocked_packages],
         mock_project(project_dir),
         output_dir=RootedPath("/unused"),
@@ -767,6 +823,7 @@ def test_create_components_failed_to_resolve(
     with pytest.raises(PackageRejected, match=re.escape(expect_err_msg)):
         create_components(
             [mocked_package.package],
+            [mocked_package.package],
             mock_project(project_dir),
             output_dir=RootedPath("/unused"),
         )
@@ -790,6 +847,7 @@ def test_create_components_cache_path_reported_but_missing(rooted_tmp_path: Root
 
     with pytest.raises(PackageRejected, match=re.escape(expect_err_msg)):
         create_components(
+            [package],
             [package],
             mock_project(rooted_tmp_path),
             output_dir=RootedPath("/unused"),
@@ -847,7 +905,7 @@ def test_get_path_patch_url(
 
     mock_project = mock.Mock(source_dir=source_dir)
     resolver = _ComponentResolver(
-        {}, [patch_locator], mock_project, rooted_tmp_path.re_root("output")
+        {}, set(), [patch_locator], mock_project, rooted_tmp_path.re_root("output")
     )
 
     actual_url = resolver._get_path_patch_url(patch_locator, patch_path)
@@ -870,7 +928,7 @@ def test_get_builtin_patch_url(
 
     mock_project = mock.Mock(source_dir=source_dir)
     resolver = _ComponentResolver(
-        {}, [patch_locator], mock_project, rooted_tmp_path.re_root("output")
+        {}, set(), [patch_locator], mock_project, rooted_tmp_path.re_root("output")
     )
 
     actual_url = resolver._get_builtin_patch_url(builtin_patch, Version(3, 0, 0))
@@ -910,7 +968,7 @@ def test_pedigree_mapping_flattens_nested_patches(
 
     mock_project = mock.Mock(source_dir=source_dir)
     resolver = _ComponentResolver(
-        {}, [patch_locator1, patch_locator2], mock_project, rooted_tmp_path.re_root("output")
+        {}, set(), [patch_locator1, patch_locator2], mock_project, rooted_tmp_path.re_root("output")
     )
 
     actual_pedigree = resolver._get_pedigree_mapping([patch_locator1, patch_locator2])
@@ -970,7 +1028,9 @@ def test_get_pedigree_with_unsupported_locators(
     mock_project = mock.Mock(source_dir=rooted_tmp_path.re_root("source"))
 
     with pytest.raises(UnsupportedFeature):
-        _ComponentResolver({}, patch_locators, mock_project, rooted_tmp_path.re_root("output"))
+        _ComponentResolver(
+            {}, set(), patch_locators, mock_project, rooted_tmp_path.re_root("output")
+        )
 
 
 @mock.patch("hermeto.core.package_managers.javascript.yarn.resolver.get_config")
@@ -1002,7 +1062,9 @@ def test_create_components_permissive_mode_without_vcs_url(
     mocked_package = mocked_package.resolve_cache_path(output_dir)
     mock_package_json(mocked_package, project_dir)
 
-    components = create_components([mocked_package.package], mock_project(project_dir), output_dir)
+    components = create_components(
+        [mocked_package.package], [mocked_package.package], mock_project(project_dir), output_dir
+    )
 
     assert len(components) == 1
     # vcs_url should not be present when repo_id is None
@@ -1039,7 +1101,12 @@ def test_create_components_strict_mode_raises_without_git_repo(
     mock_package_json(mocked_package, project_dir)
 
     with pytest.raises(NotAGitRepo):
-        create_components([mocked_package.package], mock_project(project_dir), output_dir)
+        create_components(
+            [mocked_package.package],
+            [mocked_package.package],
+            mock_project(project_dir),
+            output_dir,
+        )
 
 
 @mock.patch("hermeto.core.package_managers.javascript.yarn.resolver.get_config")
@@ -1074,7 +1141,9 @@ def test_create_components_permissive_mode_with_vcs_url(
     mocked_package = mocked_package.resolve_cache_path(output_dir)
     mock_package_json(mocked_package, project_dir)
 
-    components = create_components([mocked_package.package], mock_project(project_dir), output_dir)
+    components = create_components(
+        [mocked_package.package], [mocked_package.package], mock_project(project_dir), output_dir
+    )
 
     assert len(components) == 1
     # vcs_url should be present when get_repo_id succeeds, even in PERMISSIVE mode
@@ -1108,7 +1177,7 @@ def test_path_patch_raises_without_repo_in_permissive_mode(
     mock_proj = mock.Mock(source_dir=source_dir)
 
     with pytest.raises(PackageRejected):
-        _ComponentResolver({}, [patch_locator], mock_proj, rooted_tmp_path.re_root("output"))
+        _ComponentResolver({}, set(), [patch_locator], mock_proj, rooted_tmp_path.re_root("output"))
 
 
 @mock.patch("hermeto.core.package_managers.javascript.yarn.resolver.run_yarn_cmd")

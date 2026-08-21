@@ -18,10 +18,8 @@ from hermeto.core.models.output import (
     RequestOutput,
 )
 from hermeto.core.models.sbom import create_backend_annotation
-from hermeto.core.package_managers.javascript.npm import (
-    async_download_with_auth,
-    patch_url_to_point_to_proxy,
-)
+from hermeto.core.package_managers.general import patch_url_to_point_to_proxy
+from hermeto.core.package_managers.javascript.npm import async_download_with_auth
 from hermeto.core.package_managers.javascript.pnpm.project import (
     PnpmLock,
     PnpmPackage,
@@ -84,7 +82,9 @@ def _download_resolved_packages(packages: list[PnpmPackage], deps_dir: Path) -> 
 
     auth = None
     if proxy_login is not None and proxy_password is not None:
-        auth = aiohttp.encode_basic_auth(login=proxy_login, password=proxy_password)
+        auth = aiohttp.encode_basic_auth(
+            login=proxy_login, password=proxy_password.get_secret_value()
+        )
 
     files_with_auth = {}
     files_without_auth = {}

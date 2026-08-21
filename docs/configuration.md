@@ -43,6 +43,29 @@ override lower-priority ones (listed top to bottom):
 
 Hermeto only supports YAML config files.
 
+## Inspecting active configuration
+
+Use `hermeto config` to display the effective configuration after all sources
+have been merged. Each field is annotated with its corresponding environment
+variable name, and values that differ from defaults are marked with `(*)`.
+
+```shell
+hermeto config
+```
+
+To show only values that differ from defaults:
+
+```shell
+hermeto config --diff
+```
+
+By default, sensitive fields such as `proxy_password` are redacted. To reveal
+them, pass `--raw`:
+
+```shell
+hermeto config --raw
+```
+
 ## Settings
 
 Some settings apply to every package manager. Others apply only to specific
@@ -69,10 +92,10 @@ Applies to all package managers.
 
 ### Proxy settings
 
-Applies to `gomod`, `npm`, `pnpm`, and `yarn` when pulling dependencies
-through an artifact repository manager (e.g. Sonatype Nexus or JFrog
-Artifactory). The primary use of `proxy_login` and `proxy_password` is to
-authenticate with such a registry. Set `proxy_url` to its base URL. Do not
+Applies to `bundler`, `cargo`, `gomod`, `npm`, `pnpm`, and `yarn` when pulling
+dependencies through an artifact repository manager (e.g. Sonatype Nexus or
+JFrog Artifactory). The primary use of `proxy_login` and `proxy_password` is
+to authenticate with such a registry. Set `proxy_url` to its base URL. Do not
 embed credentials in the URL.
 
 | Key | Default | Description |
@@ -80,6 +103,12 @@ embed credentials in the URL.
 | `proxy_url` | *(unset)* | Registry base URL |
 | `proxy_login` | *(unset)* | Registry username (must be set together with `proxy_password`) |
 | `proxy_password` | *(unset)* | Registry password (must be set together with `proxy_login`) |
+
+### `bundler`
+
+Supports the [proxy settings](#proxy-settings) above and has no additional
+keys. Only rubygems registry dependencies are proxied; git and path
+dependencies are unaffected.
 
 ### `gomod`
 
@@ -107,7 +136,7 @@ Go supports the [proxy settings](#proxy-settings) above. The default
 Yarn v3 and v4 also support the [proxy settings](#proxy-settings) above. Yarn
 Classic ignores this section.
 
-### `npm` and `pnpm`
+### `cargo`, `npm` and `pnpm`
 
-Both support the [proxy settings](#proxy-settings) above and have no additional
-keys.
+These package managers support the [proxy settings](#proxy-settings) above and
+have no additional keys.

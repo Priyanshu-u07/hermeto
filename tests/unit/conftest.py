@@ -14,13 +14,6 @@ from hermeto.core.type_aliases import StrPath
 FileContents = str
 
 
-@pytest.fixture(autouse=True, scope="session")
-def _clean_git_env() -> None:
-    """Strip selected GIT_ env vars that leak from outer git operations."""
-    for var in ("GIT_DIR",):
-        os.environ.pop(var, None)
-
-
 def _create_git_repo(path: Path, files: dict[StrPath, FileContents] | None = None) -> git.Repo:
     """Create a git repository with initial files.
 
@@ -109,3 +102,12 @@ def repo_with_submodule(tmp_path: Path) -> git.Repo:
     submodule.update(init=True, recursive=True)
 
     return main_repo
+
+
+@pytest.fixture()
+def _clean_hermeto_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure Config() returns pure defaults by clearing env vars and config files."""
+    for key in list(os.environ):
+        if key.startswith("HERMETO_") and not key.startswith("HERMETO_TEST_"):
+            monkeypatch.delenv(key)
+    monkeypatch.setattr("hermeto.core.config.CONFIG_FILE_PATHS", [])
